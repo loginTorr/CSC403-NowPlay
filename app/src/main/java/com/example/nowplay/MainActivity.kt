@@ -5,6 +5,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -25,16 +27,23 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.nowplay.ui.theme.NowPlayTheme
+import kotlinx.serialization.Serializable
 
 data class BottomNavigationItem(
+    val screen: Any,
     val title: String,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
@@ -50,8 +59,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NowPlayTheme {
+                val navController = rememberNavController()
                 val items = listOf(
                     BottomNavigationItem(
+                        screen = HomeScreen,
                         title = "Home",
                         selectedIcon = Icons.Filled.Home,
                         unselectedIcon = Icons.Outlined.Home,
@@ -59,6 +70,7 @@ class MainActivity : ComponentActivity() {
                         showLabel = true,
                     ),
                     BottomNavigationItem(
+                        screen = FriendsScreen,
                         title = "Friends",
                         selectedIcon = Icons.Filled.Favorite,
                         unselectedIcon = Icons.Outlined.FavoriteBorder,
@@ -66,6 +78,7 @@ class MainActivity : ComponentActivity() {
                         showLabel = true,
                     ),
                     BottomNavigationItem(
+                        screen = PostScreen,
                         title = "Post",
                         selectedIcon = Icons.Filled.AddCircle,
                         unselectedIcon = Icons.Outlined.AddCircle,
@@ -73,6 +86,7 @@ class MainActivity : ComponentActivity() {
                         showLabel = false,
                     ),
                     BottomNavigationItem(
+                        screen = ChatScreen,
                         title = "Chat",
                         selectedIcon = Icons.Filled.Email,
                         unselectedIcon = Icons.Outlined.Email,
@@ -81,6 +95,7 @@ class MainActivity : ComponentActivity() {
                         showLabel = true,
                     ),
                     BottomNavigationItem(
+                        screen = ProfileScreen,
                         title = "Profile",
                         selectedIcon = Icons.Filled.AccountCircle,
                         unselectedIcon = Icons.Outlined.AccountCircle,
@@ -109,7 +124,7 @@ class MainActivity : ComponentActivity() {
                                             /* TO DO (Tommy): Navigation Controller still needs
                                              to be created in order to create the actual individual
                                              tab pages */
-                                            //navController.navigate(item.title)
+                                            navController.navigate(item.screen)
                                         },
                                         label = {
                                             if (item.showLabel) {
@@ -148,10 +163,95 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     ){
+                        NavHost(
+                            navController = navController,
+                            startDestination = HomeScreen,
 
+                            ) {
+                            composable<HomeScreen> {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+
+                                ) {
+                                    Text(
+                                        text = "Home Screen",
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                            composable<FriendsScreen> {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+
+                                ) {
+                                    Text(
+                                        text = "Friends Screen",
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                            composable<PostScreen> {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+
+                                ) {
+                                    Text(
+                                        text = "Post Screen",
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                            composable<ChatScreen> {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+
+                                ) {
+                                    Text(
+                                        text = "Chat Screen",
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                            composable<ProfileScreen> {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+
+                                ) {
+                                    Text(
+                                        text = "Profile Screen",
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
 }
+
+@Serializable
+object HomeScreen
+
+@Serializable
+object FriendsScreen
+
+@Serializable
+object PostScreen
+
+@Serializable
+object ChatScreen
+
+@Serializable
+object ProfileScreen

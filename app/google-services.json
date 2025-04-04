@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "41502535889",
+    "project_id": "nowplay-87a5c",
+    "storage_bucket": "nowplay-87a5c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:41502535889:android:09ad7af74a9ca6deed95f0",
+        "android_client_info": {
+          "package_name": "com.example.nowplay"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqCejuDzanB9_-JJzru_xdmmjMKhpApHY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
