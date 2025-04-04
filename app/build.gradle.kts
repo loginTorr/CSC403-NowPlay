@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.android.application")
     id("com.google.gms.google-services")
 }
 
@@ -12,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.nowplay"
-        minSdk = 22
+        minSdk = 23
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -58,14 +57,16 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation(platform("com.google.firebase:firebase-bom:33.11.0"))
-    implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.firebase:firebase-database")
-    implementation("com.google.firebase:firebase-config")
-    implementation("com.google.firebase:firebase-functions")
-    implementation("com.google.firebase:firebase-storage")
-    implementation("com.google.firebase:firebase-inappmessaging")
-    implementation("com.google.firebase:firebase-inappmessaging-display")
+
+    //firebase implementations
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics.ktx)
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.firebase.firestore)
+    implementation(libs.google.firebase.database)
+    implementation(libs.firebase.config)
+    implementation(libs.firebase.functions)
+    implementation(libs.firebase.storage)
+    implementation(libs.firebase.inappmessaging)
+    implementation(libs.firebase.inappmessaging.display)
 }
