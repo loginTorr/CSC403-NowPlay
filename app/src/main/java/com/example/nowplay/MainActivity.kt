@@ -36,11 +36,32 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.nowplay.ui.theme.NowPlayTheme
 import kotlinx.serialization.Serializable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+// for image loading not sure if we need to remove later
+import androidx.compose.foundation.Image
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.graphics.colorspace.WhitePoint
+import androidx.compose.ui.res.painterResource
 
 data class BottomNavigationItem(
     val screen: Any,
@@ -173,7 +194,6 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.fillMaxSize(),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
-
                                 ) {
                                     Text(
                                         text = "Home Screen",
@@ -186,7 +206,6 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.fillMaxSize(),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
-
                                 ) {
                                     Text(
                                         text = "Friends Screen",
@@ -199,7 +218,6 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.fillMaxSize(),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
-
                                 ) {
                                     Text(
                                         text = "Post Screen",
@@ -212,7 +230,6 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.fillMaxSize(),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
-
                                 ) {
                                     Text(
                                         text = "Chat Screen",
@@ -221,17 +238,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             composable<ProfileScreen> {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-
-                                ) {
-                                    Text(
-                                        text = "Profile Screen",
-                                        color = Color.White
-                                    )
-                                }
+                                ProfileScreenFunction()
                             }
                         }
                     }
@@ -255,3 +262,95 @@ object ChatScreen
 
 @Serializable
 object ProfileScreen
+
+@Composable
+fun ProfileScreenFunction() {
+    val postImages = listOf(
+        R.drawable.image1
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Profile picture
+        Icon(
+            imageVector = Icons.Default.AccountCircle,
+            contentDescription = "Profile Picture",
+            modifier = Modifier.size(100.dp),
+            tint = Color.LightGray
+        )
+
+        // Username
+        Text(
+            text = "Aidan",
+            color = Color.White,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+
+        // NowPlays and Friends Counters
+        Row(
+            modifier = Modifier.padding(top = 20.dp, bottom = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(80.dp)
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = postImages.size.toString(),
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "NowPlays",
+                    color = Color.Gray
+                )
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "0", // change this to dynamic value if needed
+                    color = Color.White,
+                )
+                Text(
+                    text = "Friends",
+                    color = Color.Gray
+                )
+            }
+        }
+
+        // Share profile button
+        Button(
+            onClick = { /* Handle share profile button click */ },
+            content = {Text(text = "Share Profile", color = Color.White)},
+            colors = ButtonDefaults.buttonColors(Color.Gray),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 48.dp)
+                .background(Color.Gray, shape = RoundedCornerShape(24.dp))
+
+        )
+
+        // Grid of posts
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(postImages.size) { index ->
+                Image(
+                    painter = painterResource(id = postImages[index]),
+                    contentDescription = "Post ${index + 1}",
+                    modifier = Modifier
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
+    }
+}
