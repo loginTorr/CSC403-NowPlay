@@ -28,7 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
+//import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,6 +60,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.graphics.colorspace.WhitePoint
 import androidx.compose.ui.res.painterResource
 
@@ -74,7 +75,6 @@ data class BottomNavigationItem(
 )
 
 class MainActivity : ComponentActivity() {
-    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -125,7 +125,7 @@ class MainActivity : ComponentActivity() {
                     ),
                 )
                     var selectedItemIndex by rememberSaveable {
-                    mutableStateOf(0)
+                    mutableIntStateOf(0)
                 }
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -142,9 +142,6 @@ class MainActivity : ComponentActivity() {
                                         selected = selectedItemIndex == index,
                                         onClick = {
                                             selectedItemIndex = index
-                                            /* TO DO (Tommy): Navigation Controller still needs
-                                             to be created in order to create the actual individual
-                                             tab pages */
                                             navController.navigate(item.screen)
                                         },
                                         label = {
@@ -183,59 +180,23 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                    ){
+                    ){ innerPadding ->
                         NavHost(
                             navController = navController,
                             startDestination = HomeScreen,
-
+                            modifier = Modifier.padding(innerPadding)
                             ) {
                             composable<HomeScreen> {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = "Home Screen",
-                                        color = Color.White
-                                    )
-                                }
+                                HomeScreenFunction()
                             }
                             composable<FriendsScreen> {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = "Friends Screen",
-                                        color = Color.White
-                                    )
-                                }
+                                FriendsScreenFunction()
                             }
                             composable<PostScreen> {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = "Post Screen",
-                                        color = Color.White
-                                    )
-                                }
+                                PostScreenFunction()
                             }
                             composable<ChatScreen> {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = "Chat Screen",
-                                        color = Color.White
-                                    )
-                                }
+                                ChatScreenFunction()
                             }
                             composable<ProfileScreen> {
                                 ProfileScreenFunction()
@@ -262,6 +223,62 @@ object ChatScreen
 
 @Serializable
 object ProfileScreen
+
+@Composable
+fun HomeScreenFunction() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Home Screen",
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+fun FriendsScreenFunction() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Friends Screen",
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+fun PostScreenFunction() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Post Screen",
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+fun ChatScreenFunction() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Chat Screen",
+            color = Color.White
+        )
+    }
+}
 
 @Composable
 fun ProfileScreenFunction() {
