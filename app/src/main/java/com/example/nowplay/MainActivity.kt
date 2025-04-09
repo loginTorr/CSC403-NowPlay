@@ -5,42 +5,22 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.AddCircle
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.*
 import com.example.nowplay.ui.theme.NowPlayTheme
 import kotlinx.serialization.Serializable
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
 
 data class BottomNavigationItem(
     val screen: Any,
@@ -57,9 +37,28 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         setContent {
             NowPlayTheme {
                 val navController = rememberNavController()
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+
+                val onboardingScreens = listOf(
+                    FirstNameScreen::class.qualifiedName,
+                    BirthdayScreen::class.qualifiedName,
+                    PhoneNumberScreen::class.qualifiedName,
+                    UsernameScreen::class.qualifiedName
+                )
+
+                val showBottomBar = currentDestination?.route !in onboardingScreens
+
+                // Onboarding form state
+                val firstName = rememberSaveable { mutableStateOf("") }
+                val birthday = rememberSaveable { mutableStateOf("") }
+                val phoneNumber = rememberSaveable { mutableStateOf("") }
+                val username = rememberSaveable { mutableStateOf("") }
+
                 val items = listOf(
                     BottomNavigationItem(
                         screen = HomeScreen,
@@ -67,7 +66,7 @@ class MainActivity : ComponentActivity() {
                         selectedIcon = Icons.Filled.Home,
                         unselectedIcon = Icons.Outlined.Home,
                         hasNews = false,
-                        showLabel = true,
+                        showLabel = true
                     ),
                     BottomNavigationItem(
                         screen = FriendsScreen,
@@ -75,7 +74,7 @@ class MainActivity : ComponentActivity() {
                         selectedIcon = Icons.Filled.Favorite,
                         unselectedIcon = Icons.Outlined.FavoriteBorder,
                         hasNews = false,
-                        showLabel = true,
+                        showLabel = true
                     ),
                     BottomNavigationItem(
                         screen = PostScreen,
@@ -83,7 +82,7 @@ class MainActivity : ComponentActivity() {
                         selectedIcon = Icons.Filled.AddCircle,
                         unselectedIcon = Icons.Outlined.AddCircle,
                         hasNews = false,
-                        showLabel = false,
+                        showLabel = false
                     ),
                     BottomNavigationItem(
                         screen = ChatScreen,
@@ -92,7 +91,7 @@ class MainActivity : ComponentActivity() {
                         unselectedIcon = Icons.Outlined.Email,
                         hasNews = false,
                         badgeCount = null,
-                        showLabel = true,
+                        showLabel = true
                     ),
                     BottomNavigationItem(
                         screen = ProfileScreen,
@@ -100,139 +99,174 @@ class MainActivity : ComponentActivity() {
                         selectedIcon = Icons.Filled.AccountCircle,
                         unselectedIcon = Icons.Outlined.AccountCircle,
                         hasNews = false,
-                        showLabel = true,
-                    ),
+                        showLabel = true
+                    )
                 )
-                    var selectedItemIndex by rememberSaveable {
-                    mutableStateOf(0)
-                }
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    Scaffold(
-                        containerColor = Color(26,27,28),
-                        bottomBar = {
-                            NavigationBar(
-                                contentColor = Color.White,
-                                containerColor = Color.DarkGray,
-                            ) {
-                                items.forEachIndexed { index, item ->
-                                    NavigationBarItem(
-                                        selected = selectedItemIndex == index,
-                                        onClick = {
-                                            selectedItemIndex = index
-                                            /* TO DO (Tommy): Navigation Controller still needs
-                                             to be created in order to create the actual individual
-                                             tab pages */
-                                            navController.navigate(item.screen)
-                                        },
-                                        label = {
-                                            if (item.showLabel) {
-                                                Text(
-                                                    text = item.title,
-                                                    color = Color.White
-                                                )
-                                            }
-                                        },
-                                        icon = {
-                                            BadgedBox(
-                                                badge = {
-                                                    if (item.badgeCount != null) {
-                                                        Badge {
-                                                            Text(text = item.badgeCount.toString())
-                                                        }
-                                                    } else if (item.hasNews) {
-                                                        Badge()
-                                                    }
-                                                }
-                                            ) {
-                                                Icon(
-                                                    imageVector = if (index == selectedItemIndex) {
-                                                        item.selectedIcon
 
-                                                    } else item.unselectedIcon,
-                                                    contentDescription = item.title,
-                                                    tint = if (index == selectedItemIndex) {
-                                                        Color.DarkGray
-                                                    } else Color.White
-                                                )
+                var selectedItemIndex by rememberSaveable { mutableStateOf(0) }
+
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    Scaffold(
+                        containerColor = Color(26, 27, 28),
+                        bottomBar = {
+                            if (showBottomBar) {
+                                NavigationBar(
+                                    contentColor = Color.White,
+                                    containerColor = Color.DarkGray
+                                ) {
+                                    items.forEachIndexed { index, item ->
+                                        NavigationBarItem(
+                                            selected = selectedItemIndex == index,
+                                            onClick = {
+                                                selectedItemIndex = index
+                                                navController.navigate(item.screen)
+                                            },
+                                            label = {
+                                                if (item.showLabel) {
+                                                    Text(text = item.title, color = Color.White)
+                                                }
+                                            },
+                                            icon = {
+                                                BadgedBox(
+                                                    badge = {
+                                                        if (item.badgeCount != null) {
+                                                            Badge {
+                                                                Text(text = item.badgeCount.toString())
+                                                            }
+                                                        } else if (item.hasNews) {
+                                                            Badge()
+                                                        }
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (index == selectedItemIndex) {
+                                                            item.selectedIcon
+                                                        } else item.unselectedIcon,
+                                                        contentDescription = item.title,
+                                                        tint = if (index == selectedItemIndex) {
+                                                            Color.DarkGray
+                                                        } else Color.White
+                                                    )
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
                         }
-                    ){
+                    ) {
                         NavHost(
                             navController = navController,
-                            startDestination = HomeScreen,
-
-                            ) {
-                            composable<HomeScreen> {
+                            startDestination = FirstNameScreen
+                        ) {
+                            // Onboarding: First Name
+                            composable<FirstNameScreen> {
                                 Column(
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(16.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
-
                                 ) {
-                                    Text(
-                                        text = "Home Screen",
-                                        color = Color.White
+                                    Text("Enter First Name", color = Color.White)
+                                    OutlinedTextField(
+                                        value = firstName.value,
+                                        onValueChange = { firstName.value = it },
+                                        label = { Text("First Name") },
+                                        textStyle = TextStyle(color = Color.White) // Set text color to white
                                     )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(onClick = {
+                                        navController.navigate(BirthdayScreen)
+                                    }) {
+                                        Text("Next")
+                                    }
                                 }
                             }
-                            composable<FriendsScreen> {
+
+                            // Onboarding: Birthday
+                            composable<BirthdayScreen> {
                                 Column(
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(16.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
-
                                 ) {
-                                    Text(
-                                        text = "Friends Screen",
-                                        color = Color.White
+                                    Text("Enter Birthday", color = Color.White)
+                                    OutlinedTextField(
+                                        value = birthday.value,
+                                        onValueChange = { birthday.value = it },
+                                        label = { Text("Birthday") },
+                                        textStyle = TextStyle(color = Color.White) // Set text color to white
                                     )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(onClick = {
+                                        navController.navigate(PhoneNumberScreen)
+                                    }) {
+                                        Text("Next")
+                                    }
                                 }
                             }
-                            composable<PostScreen> {
+
+                            // Onboarding: Phone Number
+                            composable<PhoneNumberScreen> {
                                 Column(
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(16.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
-
                                 ) {
-                                    Text(
-                                        text = "Post Screen",
-                                        color = Color.White
+                                    Text("Enter Phone Number", color = Color.White)
+                                    OutlinedTextField(
+                                        value = phoneNumber.value,
+                                        onValueChange = { phoneNumber.value = it },
+                                        label = { Text("Phone Number") },
+                                        textStyle = TextStyle(color = Color.White) // Set text color to white
                                     )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(onClick = {
+                                        navController.navigate(UsernameScreen)
+                                    }) {
+                                        Text("Next")
+                                    }
                                 }
                             }
-                            composable<ChatScreen> {
+
+                            // Onboarding: Username
+                            composable<UsernameScreen> {
                                 Column(
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(16.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
-
                                 ) {
-                                    Text(
-                                        text = "Chat Screen",
-                                        color = Color.White
+                                    Text("Enter Username", color = Color.White)
+                                    OutlinedTextField(
+                                        value = username.value,
+                                        onValueChange = { username.value = it },
+                                        label = { Text("Username") },
+                                        textStyle = TextStyle(color = Color.White) // Set text color to white
                                     )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(onClick = {
+                                        navController.navigate(HomeScreen) {
+                                            popUpTo(FirstNameScreen) { inclusive = true }
+                                        }
+                                    }) {
+                                        Text("Finish")
+                                    }
                                 }
                             }
-                            composable<ProfileScreen> {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
 
-                                ) {
-                                    Text(
-                                        text = "Profile Screen",
-                                        color = Color.White
-                                    )
-                                }
-                            }
+                            // Main App Screens
+                            composable<HomeScreen> { TextScreen("Home Screen") }
+                            composable<FriendsScreen> { TextScreen("Friends Screen") }
+                            composable<PostScreen> { TextScreen("Post Screen") }
+                            composable<ChatScreen> { TextScreen("Chat Screen") }
+                            composable<ProfileScreen> { TextScreen("Profile Screen") }
                         }
                     }
                 }
@@ -241,17 +275,23 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Serializable
-object HomeScreen
+@Composable
+fun TextScreen(text: String) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(text = text, color = Color.White)
+    }
+}
 
-@Serializable
-object FriendsScreen
-
-@Serializable
-object PostScreen
-
-@Serializable
-object ChatScreen
-
-@Serializable
-object ProfileScreen
+@Serializable object FirstNameScreen
+@Serializable object BirthdayScreen
+@Serializable object PhoneNumberScreen
+@Serializable object UsernameScreen
+@Serializable object HomeScreen
+@Serializable object FriendsScreen
+@Serializable object PostScreen
+@Serializable object ChatScreen
+@Serializable object ProfileScreen
