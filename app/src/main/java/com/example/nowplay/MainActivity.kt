@@ -176,11 +176,13 @@ class MainActivity : ComponentActivity() {
                                         textStyle = TextStyle(color = Color.White) // Set text color to white
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Button(onClick = {
-                                        navController.navigate(BirthdayScreen)
-                                    }) {
+                                    Button(
+                                        onClick = { navController.navigate(BirthdayScreen) },
+                                        enabled = firstName.value.isNotBlank()
+                                    ) {
                                         Text("Next")
                                     }
+
                                 }
                             }
 
@@ -201,11 +203,13 @@ class MainActivity : ComponentActivity() {
                                         textStyle = TextStyle(color = Color.White) // Set text color to white
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Button(onClick = {
-                                        navController.navigate(PhoneNumberScreen)
-                                    }) {
+                                    Button(
+                                        onClick = { navController.navigate(PhoneNumberScreen) },
+                                        enabled = birthday.value.isNotBlank()
+                                    ) {
                                         Text("Next")
                                     }
+
                                 }
                             }
 
@@ -226,11 +230,13 @@ class MainActivity : ComponentActivity() {
                                         textStyle = TextStyle(color = Color.White) // Set text color to white
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Button(onClick = {
-                                        navController.navigate(UsernameScreen)
-                                    }) {
+                                    Button(
+                                        onClick = { navController.navigate(UsernameScreen) },
+                                        enabled = phoneNumber.value.isNotBlank()
+                                    ) {
                                         Text("Next")
                                     }
+
                                 }
                             }
 
@@ -251,13 +257,17 @@ class MainActivity : ComponentActivity() {
                                         textStyle = TextStyle(color = Color.White) // Set text color to white
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Button(onClick = {
-                                        navController.navigate(HomeScreen) {
-                                            popUpTo(FirstNameScreen) { inclusive = true }
-                                        }
-                                    }) {
+                                    Button(
+                                        onClick = {
+                                            navController.navigate(HomeScreen) {
+                                                popUpTo(FirstNameScreen) { inclusive = true }
+                                            }
+                                        },
+                                        enabled = username.value.isNotBlank()
+                                    ) {
                                         Text("Finish")
                                     }
+
                                 }
                             }
 
