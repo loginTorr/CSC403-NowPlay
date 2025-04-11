@@ -73,6 +73,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+<<<<<<< Updated upstream
+=======
+import androidx.compose.runtime.LaunchedEffect
+import androidx.navigation.NavController
+>>>>>>> Stashed changes
 
 data class BottomNavigationItem(
     val screen: Any,
@@ -110,7 +115,7 @@ class MainActivity : ComponentActivity() {
             val usernameState = remember { mutableStateOf("Loading...") }
 
             // get user reference from firebase
-            val userRef = database.child("Users").child("Dickalos")
+            val userRef = database.child("Users").child("Log")
 
             // fetch user data
             userRef.addListenerForSingleValueEvent(object : ValueEventListener {
@@ -248,113 +253,22 @@ class MainActivity : ComponentActivity() {
                         ) {
                             // Onboarding: First Name
                             composable<FirstNameScreen> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text("Enter First Name", color = Color.White)
-                                    OutlinedTextField(
-                                        value = firstName.value,
-                                        onValueChange = { firstName.value = it },
-                                        label = { Text("First Name") },
-                                        textStyle = TextStyle(color = Color.White) // Set text color to white
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Button(
-                                        onClick = { navController.navigate(BirthdayScreen) },
-                                        enabled = firstName.value.isNotBlank()
-                                    ) {
-                                        Text("Next")
-                                    }
-
-                                }
+                                FirstNameScreenFunction(firstName = firstName, navController = navController)
                             }
 
                             // Onboarding: Birthday
                             composable<BirthdayScreen> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text("Enter Birthday", color = Color.White)
-                                    OutlinedTextField(
-                                        value = birthday.value,
-                                        onValueChange = { birthday.value = it },
-                                        label = { Text("Birthday") },
-                                        textStyle = TextStyle(color = Color.White) // Set text color to white
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Button(
-                                        onClick = { navController.navigate(PhoneNumberScreen) },
-                                        enabled = birthday.value.isNotBlank()
-                                    ) {
-                                        Text("Next")
-                                    }
-
-                                }
+                                BirthdayScreenFunction(birthday = birthday, navController = navController)
                             }
 
                             // Onboarding: Phone Number
                             composable<PhoneNumberScreen> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text("Enter Phone Number", color = Color.White)
-                                    OutlinedTextField(
-                                        value = phoneNumber.value,
-                                        onValueChange = { phoneNumber.value = it },
-                                        label = { Text("Phone Number") },
-                                        textStyle = TextStyle(color = Color.White) // Set text color to white
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Button(
-                                        onClick = { navController.navigate(UsernameScreen) },
-                                        enabled = phoneNumber.value.isNotBlank()
-                                    ) {
-                                        Text("Next")
-                                    }
-                                }
+                                PhoneNumberScreenFunction(phoneNumber = phoneNumber, navController = navController)
                             }
 
                             // Onboarding: Username
                             composable<UsernameScreen> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text("Enter Username", color = Color.White)
-                                    OutlinedTextField(
-                                        value = username.value,
-                                        onValueChange = { username.value = it },
-                                        label = { Text("Username") },
-                                        textStyle = TextStyle(color = Color.White) // Set text color to white
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Button(
-                                        onClick = {
-                                            navController.navigate(HomeScreen) {
-                                                popUpTo(FirstNameScreen) { inclusive = true }
-                                            }
-                                        },
-                                        enabled = username.value.isNotBlank()
-                                    ) {
-                                        Text("Finish")
-                                    }
-
-                                }
+                                UsernameScreenFunction(username = username, navController = navController)
                             }
                             composable<HomeScreen> {
                                 HomeScreenFunction()
@@ -388,6 +302,116 @@ class MainActivity : ComponentActivity() {
 @Serializable object PostScreen
 @Serializable object ChatScreen
 @Serializable object ProfileScreen
+
+@Composable
+fun FirstNameScreenFunction(firstName: MutableState<String>, navController: NavController){
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Enter First Name", color = Color.White)
+        OutlinedTextField(
+            value = firstName.value,
+            onValueChange = { firstName.value = it },
+            label = { Text("First Name") },
+            textStyle = TextStyle(color = Color.White) // Set text color to white
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = { navController.navigate(BirthdayScreen) },
+            enabled = firstName.value.isNotBlank()
+        ) {
+            Text("Next")
+        }
+
+    }
+}
+
+@Composable
+fun BirthdayScreenFunction(birthday: MutableState<String>, navController: NavController){
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Enter Birthday", color = Color.White)
+        OutlinedTextField(
+            value = birthday.value,
+            onValueChange = { birthday.value = it },
+            label = { Text("Birthday") },
+            textStyle = TextStyle(color = Color.White) // Set text color to white
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = { navController.navigate(PhoneNumberScreen) },
+            enabled = birthday.value.isNotBlank()
+        ) {
+            Text("Next")
+        }
+
+    }
+}
+
+@Composable
+fun PhoneNumberScreenFunction(phoneNumber: MutableState<String>, navController: NavController) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Enter Phone Number", color = Color.White)
+        OutlinedTextField(
+            value = phoneNumber.value,
+            onValueChange = { phoneNumber.value = it },
+            label = { Text("Phone Number") },
+            textStyle = TextStyle(color = Color.White) // Set text color to white
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = { navController.navigate(UsernameScreen) },
+            enabled = phoneNumber.value.isNotBlank()
+        ) {
+            Text("Next")
+        }
+    }
+}
+
+@Composable
+fun UsernameScreenFunction(username: MutableState<String>, navController: NavController) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Enter Username", color = Color.White)
+        OutlinedTextField(
+            value = username.value,
+            onValueChange = { username.value = it },
+            label = { Text("Username") },
+            textStyle = TextStyle(color = Color.White)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = {
+                navController.navigate(HomeScreen) {
+                    popUpTo(FirstNameScreen) { inclusive = true }
+                }
+            },
+            enabled = username.value.isNotBlank()
+        ) {
+            Text("Finish")
+        }
+    }
+}
 
 @Composable
 fun HomeScreenFunction() {
