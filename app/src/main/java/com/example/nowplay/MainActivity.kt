@@ -5,10 +5,8 @@ import com.google.firebase.Firebase
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.IgnoreExtraProperties
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.database
-import com.google.firebase.database.getValue
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -16,8 +14,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.animation.AnimatedVisibility
@@ -63,28 +59,20 @@ import androidx.navigation.compose.*
 import androidx.navigation.compose.rememberNavController
 import com.example.nowplay.ui.theme.NowPlayTheme
 import kotlinx.serialization.Serializable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.ui.graphics.colorspace.WhitePoint
 import androidx.compose.ui.res.painterResource
-// for image loading not sure if we need to remove later
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.runtime.LaunchedEffect
 
 data class BottomNavigationItem(
     val screen: Any,
@@ -201,7 +189,7 @@ class MainActivity : ComponentActivity() {
                     )
                 )
 
-                var selectedItemIndex by rememberSaveable { mutableStateOf(0) }
+                var selectedItemIndex by rememberSaveable { mutableIntStateOf(0) }
 
                 Surface(modifier = Modifier.fillMaxSize()) {
                     Scaffold(
@@ -391,17 +379,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun TextScreen(text: String) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(text = text, color = Color.White)
-    }
-}
-
 @Serializable object FirstNameScreen
 @Serializable object BirthdayScreen
 @Serializable object PhoneNumberScreen
@@ -567,7 +544,9 @@ fun ProfileScreenFunction(username: String) {
                     .background(Color.DarkGray, RoundedCornerShape(topStart = 48.dp, bottomStart = 16.dp))
                     .padding(16.dp)
             ) {
-                Column {
+                Column (
+                    modifier = Modifier.fillMaxSize(),
+                ){
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -582,6 +561,13 @@ fun ProfileScreenFunction(username: String) {
                     Spacer(modifier = Modifier.height(32.dp))
                     Text("Option 1", color = Color.White)
                     Text("Option 2", color = Color.White)
+                    HorizontalDivider(thickness = 1.dp, color = Color.Gray)
+                    Button(
+                        onClick = {  },
+                        content = { Text("Logout", color = Color.White, fontSize = 20.sp) },
+                        colors = ButtonDefaults.buttonColors(Color.Gray),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }
