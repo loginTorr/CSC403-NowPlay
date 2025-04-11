@@ -1,7 +1,16 @@
 package com.example.nowplay
 
 import android.annotation.SuppressLint
+import com.google.firebase.Firebase
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.IgnoreExtraProperties
+import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.database
+import com.google.firebase.database.getValue
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -11,16 +20,71 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.AddCircle
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.*
+import androidx.navigation.compose.rememberNavController
 import com.example.nowplay.ui.theme.NowPlayTheme
 import kotlinx.serialization.Serializable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.graphics.colorspace.WhitePoint
+import androidx.compose.ui.res.painterResource
+// for image loading not sure if we need to remove later
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.LaunchedEffect
 
 data class BottomNavigationItem(
     val screen: Any,
@@ -32,13 +96,47 @@ data class BottomNavigationItem(
     val showLabel: Boolean
 )
 
+// database user class
+data class User(
+    val username: String? = null,
+    val phoneNumber: Long? = null
+)
+
 class MainActivity : ComponentActivity() {
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+
+    // database reference to call the databse
+    private lateinit var database: DatabaseReference
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        super.onCreate(savedInstanceState) // had to do this for some reason
+
+        // reference to the database
+        database = Firebase.database.reference
+
         enableEdgeToEdge()
 
         setContent {
+
+            // this state will hold the username, loading until it's fetched
+            val usernameState = remember { mutableStateOf("Loading...") }
+
+            // get user reference from firebase
+            val userRef = database.child("Users").child("Dickalos")
+
+            // fetch user data
+            userRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val user = snapshot.getValue(User::class.java)
+                    usernameState.value = user?.username ?: "No username"
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.w("FIREBASE", "loadUser:onCancelled", error.toException())
+                    usernameState.value = "Error"
+                }
+            })
+
             NowPlayTheme {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -154,10 +252,11 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                    ) {
+                    ) { innerPadding ->
                         NavHost(
                             navController = navController,
-                            startDestination = FirstNameScreen
+                            startDestination = FirstNameScreen,
+                            modifier = Modifier.padding(innerPadding)
                         ) {
                             // Onboarding: First Name
                             composable<FirstNameScreen> {
@@ -236,7 +335,6 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         Text("Next")
                                     }
-
                                 }
                             }
 
@@ -270,13 +368,21 @@ class MainActivity : ComponentActivity() {
 
                                 }
                             }
-
-                            // Main App Screens
-                            composable<HomeScreen> { TextScreen("Home Screen") }
-                            composable<FriendsScreen> { TextScreen("Friends Screen") }
-                            composable<PostScreen> { TextScreen("Post Screen") }
-                            composable<ChatScreen> { TextScreen("Chat Screen") }
-                            composable<ProfileScreen> { TextScreen("Profile Screen") }
+                            composable<HomeScreen> {
+                                HomeScreenFunction()
+                            }
+                            composable<FriendsScreen> {
+                                FriendsScreenFunction()
+                            }
+                            composable<PostScreen> {
+                                PostScreenFunction()
+                            }
+                            composable<ChatScreen> {
+                                ChatScreenFunction()
+                            }
+                            composable<ProfileScreen> {
+                                ProfileScreenFunction(username = usernameState.value)
+                            }
                         }
                     }
                 }
@@ -305,3 +411,179 @@ fun TextScreen(text: String) {
 @Serializable object PostScreen
 @Serializable object ChatScreen
 @Serializable object ProfileScreen
+
+@Composable
+fun HomeScreenFunction() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Home Screen",
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+fun FriendsScreenFunction() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Friends Screen",
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+fun PostScreenFunction() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Post Screen",
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+fun ChatScreenFunction() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Chat Screen",
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+fun ProfileScreenFunction(username: String) {
+    val postImages = listOf(R.drawable.image1)
+    var showSettings by rememberSaveable { mutableStateOf(false) } // false to hide settings off the rip
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(top = 40.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                contentAlignment = Alignment.TopEnd
+            ) {
+                Button(
+                    onClick = { showSettings = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.size(20.dp)
+                ) {
+                    Icon (
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = Color.White
+                    )
+                }
+
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Icon(
+                Icons.Default.AccountCircle,
+                contentDescription = "Profile Picture",
+                modifier = Modifier.size(100.dp),
+                tint = Color.LightGray
+            )
+
+            // should display the username of Dickalos
+            Text(
+                username,
+                color = Color.White,
+                modifier = Modifier.padding(top = 8.dp),
+                fontSize = 30.sp
+            )
+
+            Row(
+                modifier = Modifier.padding(top = 20.dp, bottom = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(80.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(postImages.size.toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("NowPlays", color = Color.Gray)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("0", color = Color.White)
+                    Text("Friends", color = Color.Gray)
+                }
+            }
+
+            Button(
+                onClick = {},
+                content = { Text("Share Profile", color = Color.White) },
+                colors = ButtonDefaults.buttonColors(Color.Gray),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp)
+            )
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                modifier = Modifier.fillMaxHeight().padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(postImages.size) { index ->
+                    Image(
+                        painter = painterResource(id = postImages[index]),
+                        contentDescription = "Post ${index + 1}",
+                        modifier = Modifier.aspectRatio(1f).clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+        }
+
+        // for the sliding settings page
+        AnimatedVisibility(
+            visible = showSettings,
+            enter = slideInHorizontally { it },
+            exit = slideOutHorizontally { it },
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth()
+                    .align(Alignment.CenterEnd)
+                    .background(Color.DarkGray, RoundedCornerShape(topStart = 48.dp, bottomStart = 16.dp))
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Settings", color = Color.White, fontSize = 35.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(24.dp).clickable { showSettings = false }, tint = Color.White)
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text("Option 1", color = Color.White)
+                    Text("Option 2", color = Color.White)
+                }
+            }
+        }
+    }
+}
