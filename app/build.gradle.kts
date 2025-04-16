@@ -74,4 +74,5 @@ dependencies {
     implementation(libs.firebase.storage)
     implementation(libs.firebase.inappmessaging)
     implementation(libs.firebase.inappmessaging.display)
+    implementation(platform(libs.firebase.bom.v3270))
 }

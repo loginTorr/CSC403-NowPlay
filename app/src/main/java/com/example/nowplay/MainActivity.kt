@@ -2,10 +2,7 @@ package com.example.nowplay
 
 import android.annotation.SuppressLint
 import com.google.firebase.Firebase
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.database
 import android.os.Bundle
 import android.util.Log
@@ -73,11 +70,20 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-<<<<<<< Updated upstream
-=======
 import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavController
->>>>>>> Stashed changes
+import com.google.firebase.auth.FirebaseAuth
+import android.app.Activity
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import com.google.firebase.FirebaseException
+import com.google.firebase.auth.*
+import com.google.firebase.firestore.firestore
+import java.util.concurrent.TimeUnit
+import com.google.firebase.firestore.FirebaseFirestore
+
+
+
 
 data class BottomNavigationItem(
     val screen: Any,
@@ -108,27 +114,46 @@ class MainActivity : ComponentActivity() {
         database = Firebase.database.reference
 
         enableEdgeToEdge()
-
+        val user = FirebaseAuth.getInstance().currentUser
+        val startDestination = if (user != null) HomeScreen else LoginSignupScreen
         setContent {
 
-            // this state will hold the username, loading until it's fetched
             val usernameState = remember { mutableStateOf("Loading...") }
+            val context = LocalContext.current
 
-            // get user reference from firebase
-            val userRef = database.child("Users").child("Log")
+            LaunchedEffect(Unit) {
+                val auth = FirebaseAuth.getInstance()
+                val db = FirebaseFirestore.getInstance()
 
-            // fetch user data
-            userRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val user = snapshot.getValue(User::class.java)
-                    usernameState.value = user?.username ?: "No username"
+                val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+                    val user = firebaseAuth.currentUser
+                    if (user != null) {
+                        val uid = user.uid
+                        db.collection("Users").document(uid)
+                            .get()
+                            .addOnSuccessListener { document ->
+                                if (document != null && document.exists()) {
+                                    val username = document.getString("username")
+                                    usernameState.value = username ?: "No username found"
+                                } else {
+                                    usernameState.value = "No username found"
+                                }
+                            }
+                            .addOnFailureListener { exception ->
+                                Log.w("FIRESTORE", "Error getting username", exception)
+                                usernameState.value = "Error loading username"
+                            }
+                    } else {
+                        usernameState.value = "No user logged in"
+                    }
                 }
 
-                override fun onCancelled(error: DatabaseError) {
-                    Log.w("FIREBASE", "loadUser:onCancelled", error.toException())
-                    usernameState.value = "Error"
-                }
-            })
+                auth.addAuthStateListener(listener)
+            }
+
+
+
+
 
             NowPlayTheme {
                 val navController = rememberNavController()
@@ -139,12 +164,14 @@ class MainActivity : ComponentActivity() {
                     FirstNameScreen::class.qualifiedName,
                     BirthdayScreen::class.qualifiedName,
                     PhoneNumberScreen::class.qualifiedName,
-                    UsernameScreen::class.qualifiedName
+                    UsernameScreen::class.qualifiedName,
+                    LoginScreen::class.qualifiedName,
+                    LoginSignupScreen::class.qualifiedName
                 )
 
                 val showBottomBar = currentDestination?.route !in onboardingScreens
 
-                // Onboarding form state
+
                 val firstName = rememberSaveable { mutableStateOf("") }
                 val birthday = rememberSaveable { mutableStateOf("") }
                 val phoneNumber = rememberSaveable { mutableStateOf("") }
@@ -248,28 +275,42 @@ class MainActivity : ComponentActivity() {
                     ) { innerPadding ->
                         NavHost(
                             navController = navController,
-                            startDestination = FirstNameScreen,
+                            startDestination = startDestination,
                             modifier = Modifier.padding(innerPadding)
                         ) {
-                            // Onboarding: First Name
+                            composable<LoginSignupScreen> {
+                                LoginSignupScreenFunction(navController = navController)
+                            }
+
+                            composable<LoginScreen> {
+                                LoginScreenFunction(navController = navController)
+                            }
+
                             composable<FirstNameScreen> {
                                 FirstNameScreenFunction(firstName = firstName, navController = navController)
                             }
 
-                            // Onboarding: Birthday
+
                             composable<BirthdayScreen> {
                                 BirthdayScreenFunction(birthday = birthday, navController = navController)
                             }
 
-                            // Onboarding: Phone Number
+
                             composable<PhoneNumberScreen> {
                                 PhoneNumberScreenFunction(phoneNumber = phoneNumber, navController = navController)
                             }
 
-                            // Onboarding: Username
+
                             composable<UsernameScreen> {
-                                UsernameScreenFunction(username = username, navController = navController)
+                                UsernameScreenFunction(
+                                    firstName = firstName,
+                                    birthday = birthday,
+                                    phoneNumber = phoneNumber,
+                                    username = username,
+                                    navController = navController
+                                )
                             }
+
                             composable<HomeScreen> {
                                 HomeScreenFunction()
                             }
@@ -293,6 +334,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Serializable object LoginSignupScreen
+@Serializable object LoginScreen
 @Serializable object FirstNameScreen
 @Serializable object BirthdayScreen
 @Serializable object PhoneNumberScreen
@@ -302,6 +345,178 @@ class MainActivity : ComponentActivity() {
 @Serializable object PostScreen
 @Serializable object ChatScreen
 @Serializable object ProfileScreen
+
+@Composable
+fun LoginSignupScreenFunction(navController: NavController) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(26, 27, 28)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "NowPlaying",
+            fontSize = 40.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 80.dp)
+        )
+
+        Button(
+            onClick = { navController.navigate(LoginScreen) },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 48.dp, vertical = 8.dp)
+                .height(50.dp)
+        ) {
+            Text("Login", fontSize = 18.sp, color = Color.White)
+        }
+
+        Button(
+            onClick = { navController.navigate(FirstNameScreen) },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 48.dp, vertical = 8.dp)
+                .height(50.dp)
+        ) {
+            Text("Sign Up", fontSize = 18.sp, color = Color.White)
+        }
+    }
+}
+
+
+@Composable
+fun LoginScreenFunction(navController: NavController) {
+    val phoneNumber = remember { mutableStateOf("") }
+    val username = remember { mutableStateOf("") }
+    val verificationId = remember { mutableStateOf<String?>(null) }
+    val smsCode = remember { mutableStateOf("") }
+    val isLoading = remember { mutableStateOf(false) }
+    val errorMessage = remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Login", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
+
+        OutlinedTextField(
+            value = phoneNumber.value,
+            onValueChange = { phoneNumber.value = it },
+            label = { Text("Phone Number") },
+            textStyle = TextStyle(color = Color.White),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+        )
+
+        OutlinedTextField(
+            value = username.value,
+            onValueChange = { username.value = it },
+            label = { Text("Username") },
+            textStyle = TextStyle(color = Color.White),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+        )
+
+        if (verificationId.value != null) {
+            OutlinedTextField(
+                value = smsCode.value,
+                onValueChange = { smsCode.value = it },
+                label = { Text("Verification Code") },
+                textStyle = TextStyle(color = Color.White),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+            )
+        }
+
+        errorMessage.value?.let {
+            Text(it, color = Color.Red, modifier = Modifier.padding(top = 8.dp))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                if (verificationId.value == null) {
+                    // send code
+                    val options = PhoneAuthOptions.newBuilder(FirebaseAuth.getInstance())
+                        .setPhoneNumber(phoneNumber.value)
+                        .setTimeout(60L, TimeUnit.SECONDS)
+                        .setActivity(context as Activity)
+                        .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                                // auto-verification
+                                FirebaseAuth.getInstance().signInWithCredential(credential)
+                                    .addOnCompleteListener {
+                                        if (it.isSuccessful) {
+                                            checkUserInFirestore(navController, username.value)
+                                        }
+                                    }
+                            }
+
+                            override fun onVerificationFailed(e: FirebaseException) {
+                                errorMessage.value = "Verification failed: ${e.message}"
+                            }
+
+                            override fun onCodeSent(vid: String, token: PhoneAuthProvider.ForceResendingToken) {
+                                verificationId.value = vid
+                            }
+
+                        })
+                        .build()
+                    PhoneAuthProvider.verifyPhoneNumber(options)
+                } else {
+                    // verify code manually
+                    val credential = PhoneAuthProvider.getCredential(verificationId.value!!, smsCode.value)
+                    FirebaseAuth.getInstance().signInWithCredential(credential)
+                        .addOnCompleteListener {
+                            if (it.isSuccessful) {
+                                checkUserInFirestore(navController, username.value)
+                            } else {
+                                errorMessage.value = "Sign in failed: ${it.exception?.message}"
+                            }
+                        }
+                }
+            },
+            enabled = phoneNumber.value.isNotBlank() && username.value.isNotBlank() &&
+                    (verificationId.value == null || smsCode.value.length == 6),
+            modifier = Modifier.fillMaxWidth().height(50.dp)
+        ) {
+            Text(if (verificationId.value == null) "Send Code" else "Verify & Login")
+        }
+
+        TextButton(onClick = { navController.navigate(FirstNameScreen) }) {
+            Text("Don't have an account? Sign Up", color = Color.LightGray)
+        }
+    }
+}
+
+private fun checkUserInFirestore(navController: NavController, username: String) {
+    val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+    val db = FirebaseFirestore.getInstance()
+
+    db.collection("Users").document(uid).get()
+        .addOnSuccessListener { doc ->
+            if (doc != null && doc.exists() &&
+                doc.getString("username") == username) {
+                navController.navigate(HomeScreen) {
+                    popUpTo(LoginSignupScreen) { inclusive = true }
+                }
+            } else {
+                FirebaseAuth.getInstance().signOut()
+                Log.e("FIREBASE", "Invalid user or username mismatch")
+            }
+        }
+        .addOnFailureListener { e ->
+            FirebaseAuth.getInstance().signOut()
+            Log.e("FIREBASE", "Failed to retrieve user", e)
+        }
+}
+
 
 @Composable
 fun FirstNameScreenFunction(firstName: MutableState<String>, navController: NavController){
@@ -317,7 +532,7 @@ fun FirstNameScreenFunction(firstName: MutableState<String>, navController: NavC
             value = firstName.value,
             onValueChange = { firstName.value = it },
             label = { Text("First Name") },
-            textStyle = TextStyle(color = Color.White) // Set text color to white
+            textStyle = TextStyle(color = Color.White)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Button(
@@ -344,7 +559,7 @@ fun BirthdayScreenFunction(birthday: MutableState<String>, navController: NavCon
             value = birthday.value,
             onValueChange = { birthday.value = it },
             label = { Text("Birthday") },
-            textStyle = TextStyle(color = Color.White) // Set text color to white
+            textStyle = TextStyle(color = Color.White)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Button(
@@ -359,6 +574,10 @@ fun BirthdayScreenFunction(birthday: MutableState<String>, navController: NavCon
 
 @Composable
 fun PhoneNumberScreenFunction(phoneNumber: MutableState<String>, navController: NavController) {
+    val verificationId = remember { mutableStateOf<String?>(null) }
+    val smsCode = remember { mutableStateOf("") }
+    val context = LocalContext.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -366,25 +585,86 @@ fun PhoneNumberScreenFunction(phoneNumber: MutableState<String>, navController: 
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Enter Phone Number", color = Color.White)
-        OutlinedTextField(
-            value = phoneNumber.value,
-            onValueChange = { phoneNumber.value = it },
-            label = { Text("Phone Number") },
-            textStyle = TextStyle(color = Color.White) // Set text color to white
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = { navController.navigate(UsernameScreen) },
-            enabled = phoneNumber.value.isNotBlank()
-        ) {
-            Text("Next")
+        if (verificationId.value == null) {
+            Text("Enter Phone Number", color = Color.White)
+            OutlinedTextField(
+                value = phoneNumber.value,
+                onValueChange = { phoneNumber.value = it },
+                label = { Text("Phone Number") },
+                textStyle = TextStyle(color = Color.White)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    val options = PhoneAuthOptions.newBuilder(FirebaseAuth.getInstance())
+                        .setPhoneNumber(phoneNumber.value)
+                        .setTimeout(60L, TimeUnit.SECONDS)
+                        .setActivity(context as Activity)
+                        .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                                FirebaseAuth.getInstance().signInWithCredential(credential)
+                                    .addOnCompleteListener {
+                                        if (it.isSuccessful) {
+                                            navController.navigate(UsernameScreen)
+                                        }
+                                    }
+                            }
+
+                            override fun onVerificationFailed(e: FirebaseException) {
+                                Log.e("PhoneAuth", "Verification failed", e)
+                            }
+
+                            override fun onCodeSent(verificationIdString: String, token: PhoneAuthProvider.ForceResendingToken) {
+                                verificationId.value = verificationIdString
+                            }
+                        })
+                        .build()
+
+                    PhoneAuthProvider.verifyPhoneNumber(options)
+                },
+                enabled = phoneNumber.value.isNotBlank()
+            ) {
+                Text("Send Code")
+            }
+        } else {
+            Text("Enter Verification Code", color = Color.White)
+            OutlinedTextField(
+                value = smsCode.value,
+                onValueChange = { smsCode.value = it },
+                label = { Text("Verification Code") },
+                textStyle = TextStyle(color = Color.White)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    val credential = PhoneAuthProvider.getCredential(verificationId.value!!, smsCode.value)
+                    FirebaseAuth.getInstance().signInWithCredential(credential)
+                        .addOnCompleteListener {
+                            if (it.isSuccessful) {
+                                navController.navigate(UsernameScreen)
+                            } else {
+                                Log.e("PhoneAuth", "Sign in failed", it.exception)
+                            }
+                        }
+                },
+                enabled = smsCode.value.length == 6
+            ) {
+                Text("Verify & Continue")
+            }
         }
     }
 }
 
+
 @Composable
-fun UsernameScreenFunction(username: MutableState<String>, navController: NavController) {
+fun UsernameScreenFunction(
+    firstName: MutableState<String>,
+    birthday: MutableState<String>,
+    phoneNumber: MutableState<String>,
+    username: MutableState<String>,
+    navController: NavController
+)
+ {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -402,10 +682,34 @@ fun UsernameScreenFunction(username: MutableState<String>, navController: NavCon
         Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = {
-                navController.navigate(HomeScreen) {
-                    popUpTo(FirstNameScreen) { inclusive = true }
+                val db = Firebase.firestore
+                val auth = FirebaseAuth.getInstance()
+                val userId = auth.currentUser?.uid
+
+                if (userId != null) {
+                    val userData = hashMapOf(
+                        "firstName" to firstName.value,
+                        "birthday" to birthday.value,
+                        "phoneNumber" to phoneNumber.value,
+                        "username" to username.value
+                    )
+
+                    db.collection("Users").document(userId)
+                        .set(userData)
+                        .addOnSuccessListener {
+                            navController.navigate(HomeScreen) {
+                                popUpTo(FirstNameScreen) { inclusive = true }
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("FIRESTORE", "Failed to save user data", e)
+                        }
+                } else {
+                    Log.e("AUTH", "User not logged in")
                 }
-            },
+            }
+
+            ,
             enabled = username.value.isNotBlank()
         ) {
             Text("Finish")
@@ -473,6 +777,9 @@ fun ChatScreenFunction() {
 fun ProfileScreenFunction(username: String) {
     val postImages = listOf(R.drawable.image1)
     var showSettings by rememberSaveable { mutableStateOf(false) } // false to hide settings off the rip
+    val context = LocalContext.current
+    val navController = rememberNavController()
+
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -507,7 +814,6 @@ fun ProfileScreenFunction(username: String) {
                 tint = Color.LightGray
             )
 
-            // should display the username of Dickalos
             Text(
                 username,
                 color = Color.White,
@@ -587,7 +893,12 @@ fun ProfileScreenFunction(username: String) {
                     Text("Option 2", color = Color.White)
                     HorizontalDivider(thickness = 1.dp, color = Color.Gray)
                     Button(
-                        onClick = {  },
+                        onClick = {
+                            FirebaseAuth.getInstance().signOut()
+                            val intent = Intent(context, MainActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            context.startActivity(intent)
+                        },
                         content = { Text("Logout", color = Color.White, fontSize = 20.sp) },
                         colors = ButtonDefaults.buttonColors(Color.Gray),
                         modifier = Modifier.fillMaxWidth()
