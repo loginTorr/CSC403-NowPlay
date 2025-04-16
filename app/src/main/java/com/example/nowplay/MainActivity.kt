@@ -75,12 +75,19 @@ import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import android.app.Activity
 import android.content.Intent
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.*
 import com.google.firebase.firestore.firestore
 import java.util.concurrent.TimeUnit
 import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextFieldDefaults
+
+
 
 
 
@@ -729,6 +736,18 @@ fun HomeScreenFunction() {
             color = Color.White
         )
     }
+    //NowPlay Logo
+    Column(
+        modifier = Modifier.fillMaxSize().padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
+    ) {
+        Text(text = "NowPlay.",
+            fontSize = 22.sp,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+        )
+    }
 }
 
 @Composable
@@ -739,9 +758,105 @@ fun FriendsScreenFunction() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Friends Screen",
+            text = "Friend Screen",
             color = Color.White
         )
+    }
+
+    var searchText by remember { mutableStateOf("") }
+    //NowPlay Logo
+    Column(
+        modifier = Modifier.fillMaxSize().padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
+    ) {
+        Text(
+            text = "NowPlay.",
+            fontSize = 22.sp,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+        //Search Friends button
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search Icon",
+                    tint = Color.LightGray,
+                    modifier = Modifier.size(20.dp)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                BasicTextField(
+                    value = searchText,
+                    onValueChange = { searchText = it },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                    modifier = Modifier.fillMaxWidth(),
+                    decorationBox = { innerTextField ->
+                        if (searchText.isEmpty()) {
+                            Text(
+                                text = "Add or search friends",
+                                color = Color.LightGray,
+                                fontSize = 18.sp
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
+            }
+        }
+
+
+        //Invite friends link box
+        Spacer(modifier = Modifier.height(40.dp))
+        Button(
+            onClick = {},
+            colors = ButtonDefaults.buttonColors(Color.DarkGray),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+            shape = RoundedCornerShape(20.dp),
+            contentPadding = PaddingValues(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "Profile Picture",
+                    modifier = Modifier.size(40.dp),
+                    tint = Color.LightGray
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Invite friends on BeReal",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                    )
+
+                    Text(
+                        text = "nowplay.al/username",
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                    )
+
+                }
+            }
+        }
     }
 }
 
@@ -818,7 +933,8 @@ fun ProfileScreenFunction(username: String) {
                 username,
                 color = Color.White,
                 modifier = Modifier.padding(top = 8.dp),
-                fontSize = 30.sp
+                fontSize = 25.sp,
+                fontWeight = FontWeight.Bold
             )
 
             Row(
