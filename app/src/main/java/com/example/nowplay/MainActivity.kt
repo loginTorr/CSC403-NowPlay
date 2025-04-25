@@ -77,7 +77,6 @@ import android.app.Activity
 import android.content.Intent
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontStyle
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.*
 import com.google.firebase.firestore.firestore
@@ -85,7 +84,6 @@ import java.util.concurrent.TimeUnit
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextFieldDefaults
 
 
 
@@ -111,7 +109,7 @@ data class User(
 class MainActivity : ComponentActivity() {
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 
-    // database reference to call the databse
+    // database reference to call the database
     private lateinit var database: DatabaseReference
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -122,7 +120,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         val user = FirebaseAuth.getInstance().currentUser
-        val startDestination = if (user != null) HomeScreen else LoginSignupScreen
+        val startDestination: Any = if (user != null) HomeScreen else LoginSignupScreen
         setContent {
 
             val usernameState = remember { mutableStateOf("Loading...") }
@@ -891,9 +889,25 @@ fun ChatScreenFunction() {
 @Composable
 fun ProfileScreenFunction(username: String) {
     val postImages = listOf(R.drawable.image1)
+
+    // Set Up Database
+    val database = Firebase.firestore
+    val user = FirebaseAuth.getInstance().currentUser
+    val posts = database.collection("/Users/${user?.uid}/Posts")
+    var numPosts by rememberSaveable { mutableIntStateOf(0) }
+
+    // Count number of posts of user
+    LaunchedEffect(key1 = true) {
+        posts.get().addOnSuccessListener { documents ->
+            for (post in documents) {
+                numPosts++
+            }
+        }
+    }
+
     var showSettings by rememberSaveable { mutableStateOf(false) } // false to hide settings off the rip
     val context = LocalContext.current
-    val navController = rememberNavController()
+    //val navController = rememberNavController()
 
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -942,11 +956,11 @@ fun ProfileScreenFunction(username: String) {
                 horizontalArrangement = Arrangement.spacedBy(80.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(postImages.size.toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(numPosts.toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text("NowPlays", color = Color.Gray)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("0", color = Color.White)
+                    Text("0", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text("Friends", color = Color.Gray)
                 }
             }
