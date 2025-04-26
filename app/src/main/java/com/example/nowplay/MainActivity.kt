@@ -2,8 +2,6 @@ package com.example.nowplay
 
 import android.annotation.SuppressLint
 import com.google.firebase.Firebase
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.database
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -84,10 +82,10 @@ import java.util.concurrent.TimeUnit
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.OutlinedTextField
-
-
-
-
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 
 data class BottomNavigationItem(
@@ -103,24 +101,20 @@ data class BottomNavigationItem(
 // database user class
 data class User(
     val username: String? = null,
-    val phoneNumber: Long? = null
+    val phoneNumber: String? = null,
+    val firstName: String? = null,
+    val birthday: String? = null
 )
 
 class MainActivity : ComponentActivity() {
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 
-    // database reference to call the database
-    private lateinit var database: DatabaseReference
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState) // had to do this for some reason
 
-        // reference to the database
-        database = Firebase.database.reference
-
         enableEdgeToEdge()
         val user = FirebaseAuth.getInstance().currentUser
-        val startDestination: Any = if (user != null) HomeScreen else LoginSignupScreen
+        val startDestination = if (user != null) HomeScreen else LoginSignupScreen
         setContent {
 
             val usernameState = remember { mutableStateOf("Loading...") }
@@ -320,7 +314,7 @@ class MainActivity : ComponentActivity() {
                                 HomeScreenFunction()
                             }
                             composable<FriendsScreen> {
-                                FriendsScreenFunction()
+                                FriendsScreenFunction(viewModel())
                             }
                             composable<PostScreen> {
                                 PostScreenFunction()
@@ -333,6 +327,32 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+// For fetching the users from the database and maintaining them
+// Throughout navigation, allows it so the users only have to be
+// Fetched once instead of everytime you use the search bar
+class FriendsViewModel : ViewModel() {
+    private val _allUsers = MutableStateFlow<List<Pair<String, User>>>(emptyList()) // UID and user
+    val allUsers: StateFlow<List<Pair<String, User>>> = _allUsers
+
+    init {
+        fetchUsers()
+    }
+
+    fun fetchUsers() {
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+        FirebaseFirestore.getInstance().collection("Users").get().addOnSuccessListener { result ->
+            _allUsers.value = result.documents.mapNotNull { doc ->
+                val user = doc.toObject(User::class.java)
+                if (user != null && doc.id != currentUserId) {
+                    doc.id to user
+                } else {
+                    null
                 }
             }
         }
@@ -749,22 +769,35 @@ fun HomeScreenFunction() {
 }
 
 @Composable
-fun FriendsScreenFunction() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Friend Screen",
-            color = Color.White
-        )
+fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
+    var searchText by remember { mutableStateOf("") }
+    val allUsers by viewModel.allUsers.collectAsState()
+
+    // logging for user list load
+    LaunchedEffect(allUsers) {
+        Log.d("FRIENDS", "Fetched ${allUsers.size} users from FireStore?")
     }
 
-    var searchText by remember { mutableStateOf("") }
-    //NowPlay Logo
+    // filtered user list
+    val filteredUsers = remember(searchText, allUsers) {
+        try {
+            if (searchText.isBlank()) {
+                emptyList()
+            } else {
+                allUsers.filter {
+                    it.second.username?.startsWith(searchText, ignoreCase = true) == true
+                }.sortedByDescending { it.second.username?.length ?: 0 }
+            }
+        } catch (e: Exception) {
+            Log.e("FRIENDS", "Filtering crashed", e)
+            emptyList()
+        }
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize().padding(20.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
@@ -772,11 +805,12 @@ fun FriendsScreenFunction() {
             text = "NowPlay.",
             fontSize = 22.sp,
             color = Color.White,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold
         )
 
         Spacer(modifier = Modifier.height(14.dp))
-        //Search Friends button
+
+        // search bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -785,7 +819,10 @@ fun FriendsScreenFunction() {
                 .padding(horizontal = 12.dp),
             contentAlignment = Alignment.CenterStart
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Search Icon",
@@ -813,15 +850,83 @@ fun FriendsScreenFunction() {
                     }
                 )
             }
+
+            // clears the search bar button if its not empty
+            if(searchText.isNotBlank()) {
+                IconButton(onClick = { searchText = "" },
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(24.dp))
+                {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear Search",
+                        tint = Color.LightGray,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
 
 
-        //Invite friends link box
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // display of filtered usernames
+        filteredUsers.forEach { (_, user) ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        searchText = user.username ?: ""
+                    }
+                    .padding(vertical = 8.dp)
+            ) {
+                // Left-aligned content (icon + username)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Profile Icon",
+                        tint = Color.LightGray,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .padding(end = 8.dp)
+                    )
+                    Text(
+                        text = user.username ?: "Unknown user",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Right-aligned button
+                Button(
+                    onClick = { /* adding friend to be implemented */ },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Text("Add", fontSize = 12.sp, color = Color.White)
+                }
+            }
+        }
+
+
         Spacer(modifier = Modifier.height(40.dp))
+
+        // invite friends link box
         Button(
-            onClick = {},
+            onClick = { /* Optional: hook up link sharing */ },
             colors = ButtonDefaults.buttonColors(Color.DarkGray),
-            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
             shape = RoundedCornerShape(20.dp),
             contentPadding = PaddingValues(10.dp)
         ) {
@@ -851,7 +956,6 @@ fun FriendsScreenFunction() {
                         color = Color.Gray,
                         fontSize = 14.sp,
                     )
-
                 }
             }
         }
