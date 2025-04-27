@@ -84,6 +84,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.OutlinedTextField
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -106,6 +107,13 @@ data class User(
     val birthday: String? = null
 )
 
+// database post class (not finished)
+data class Post(
+    val song: String?,
+    val image: Int,
+    val timestamp: Timestamp?
+)
+
 class MainActivity : ComponentActivity() {
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 
@@ -114,7 +122,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         val user = FirebaseAuth.getInstance().currentUser
-        val startDestination = if (user != null) HomeScreen else LoginSignupScreen
+        val startDestination: Any = if (user != null) HomeScreen else LoginSignupScreen
         setContent {
 
             val usernameState = remember { mutableStateOf("Loading...") }
@@ -990,29 +998,35 @@ fun ChatScreenFunction() {
     }
 }
 
+@SuppressLint("MutableCollectionMutableState")
 @Composable
 fun ProfileScreenFunction(username: String) {
-    val postImages = listOf(R.drawable.image1)
+    //val postImages = listOf(R.drawable.image1, R.drawable.image1)
+    val posts by remember { mutableStateOf(mutableListOf<Post>()) }
 
     // Set Up Database
     val database = Firebase.firestore
     val user = FirebaseAuth.getInstance().currentUser
-    val posts = database.collection("/Users/${user?.uid}/Posts")
+    val postCollection = database.collection("/Users/${user?.uid}/Posts")
     var numPosts by rememberSaveable { mutableIntStateOf(0) }
 
     // Count number of posts of user
     LaunchedEffect(key1 = true) {
-        posts.get().addOnSuccessListener { documents ->
-            for (post in documents) {
+        postCollection.get().addOnSuccessListener { documents ->
+            for (document in documents) {
                 numPosts++
+                val post = Post(
+                    song = document.getString("song"),
+                    image = R.drawable.image1,
+                    timestamp = document.getTimestamp("timestamp"),
+                )
+                posts.add(post)
             }
         }
     }
 
     var showSettings by rememberSaveable { mutableStateOf(false) } // false to hide settings off the rip
     val context = LocalContext.current
-    //val navController = rememberNavController()
-
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -1075,21 +1089,38 @@ fun ProfileScreenFunction(username: String) {
                 colors = ButtonDefaults.buttonColors(Color.Gray),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp)
             )
-
-            LazyVerticalGrid(
+            if (numPosts == 0) {
+                Column {
+                    Text(
+                        "Wow, it's really quiet in here!",
+                        color = Color.White, fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 64.dp).align(Alignment.CenterHorizontally)
+                    )
+                    Button(
+                        onClick = {},
+                        content = { Text("Add your NowPlaying.", color = Color.Black, fontWeight = FontWeight.Bold) },
+                        colors = ButtonDefaults.buttonColors(Color.White),
+                        modifier = Modifier.padding(top = 16.dp).align(Alignment.CenterHorizontally)
+                    )
+                }
+            }
+            else if (numPosts > 0) {
+                LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 modifier = Modifier.fillMaxHeight().padding(horizontal = 16.dp),
                 contentPadding = PaddingValues(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(postImages.size) { index ->
-                    Image(
-                        painter = painterResource(id = postImages[index]),
-                        contentDescription = "Post ${index + 1}",
-                        modifier = Modifier.aspectRatio(1f).clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
+                ) {
+                    items(posts.size) { index ->
+                        Image(
+                            painter = painterResource(id = R.drawable.image1),
+                            contentDescription = "Post ${index + 1}",
+                            modifier = Modifier.aspectRatio(1f).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 }
             }
         }
