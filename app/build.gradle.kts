@@ -74,4 +74,7 @@ dependencies {
     implementation(libs.firebase.storage)
     implementation(libs.firebase.inappmessaging)
     implementation(libs.firebase.inappmessaging.display)
+
+
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }
