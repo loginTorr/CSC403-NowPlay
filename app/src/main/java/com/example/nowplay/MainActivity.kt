@@ -92,7 +92,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
-
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import com.google.android.gms.tasks.Tasks
+import com.google.firebase.firestore.DocumentSnapshot
 
 data class BottomNavigationItem(
     val screen: Any,
@@ -371,12 +374,17 @@ class MainActivity : ComponentActivity() {
 // For fetching the users from the database and maintaining them
 // Throughout navigation, allows it so the users only have to be
 // Fetched once instead of everytime you use the search bar
+// NEEDED for friends screen to work atm
 class FriendsViewModel : ViewModel() {
     private val _allUsers = MutableStateFlow<List<Pair<String, User>>>(emptyList()) // UID and user
     val allUsers: StateFlow<List<Pair<String, User>>> = _allUsers
 
+    private val _blockedUserIds = MutableStateFlow<Set<String>>(emptySet())
+    val blockedUserIds: StateFlow<Set<String>> = _blockedUserIds
+
     init {
         fetchUsers()
+        fetchBlockedUsers()
     }
 
     fun fetchUsers() {
@@ -392,6 +400,68 @@ class FriendsViewModel : ViewModel() {
             }
         }
     }
+
+    // gets the users that you sent friend requests to which will be blocked
+    fun fetchBlockedUsers() {
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val db = FirebaseFirestore.getInstance()
+        val blockedIds = mutableSetOf<String>()
+
+        db.collection("Users").get().addOnSuccessListener { users ->
+            var pendingCount = users.size()
+            if (pendingCount == 0) {
+                finalizeBlockedUsers(blockedIds, currentUserId)
+                return@addOnSuccessListener
+            }
+
+            users.documents.forEach { doc ->
+                val otherUserId = doc.id
+                db.collection("Users").document(otherUserId)
+                    .collection("FriendRequests")
+                    .document(currentUserId)
+                    .get()
+                    .addOnSuccessListener { requestDoc ->
+                        if (requestDoc.exists()) {
+                            blockedIds.add(otherUserId)
+                        }
+                        pendingCount--
+                        if (pendingCount == 0) {
+                            finalizeBlockedUsers(blockedIds, currentUserId)
+                        }
+                    }
+                    .addOnFailureListener {
+                        Log.e("BLOCKED_USERS", "Error checking request for $otherUserId", it)
+                        pendingCount--
+                        if (pendingCount == 0) {
+                            finalizeBlockedUsers(blockedIds, currentUserId)
+                        }
+                    }
+            }
+        }.addOnFailureListener {
+            Log.e("BLOCKED_USERS", "Failed to fetch users", it)
+        }
+    }
+
+    // also add the users you are ALREADY friends with to the blocked list
+    private fun finalizeBlockedUsers(blockedIds: MutableSet<String>, currentUserId: String) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("Users").document(currentUserId)
+            .collection("Friends")
+            .get()
+            .addOnSuccessListener { friendsSnapshot ->
+                friendsSnapshot.documents.forEach { doc ->
+                    blockedIds.add(doc.id)
+                }
+                // lists out the users that you CANNOT send another request to
+                Log.d("BLOCKED_USERS", "Final blocked list: $blockedIds")
+                _blockedUserIds.value = blockedIds.toSet()
+            }
+            .addOnFailureListener { // error checking if failed to fetch friends or requests
+                Log.e("BLOCKED_USERS", "Failed to fetch friends", it)
+            }
+    }
+
+
 }
 
 @Serializable object LoginSignupScreen
@@ -1009,6 +1079,8 @@ fun PostItems(post: Post) {
 fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
     var searchText by remember { mutableStateOf("") }
     val allUsers by viewModel.allUsers.collectAsState()
+    var showRequests by rememberSaveable { mutableStateOf(false) }
+    val blockedUserIds by viewModel.blockedUserIds.collectAsState()
 
     // logging for user list load
     LaunchedEffect(allUsers) {
@@ -1031,19 +1103,41 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
         }
     }
 
+
+    // top bar for logo and friends icon
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp),
+            .padding(top = 10.dp, start = 20.dp, end = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
-        Text(
-            text = "NowPlay.",
-            fontSize = 22.sp,
-            color = Color.White,
-            fontWeight = FontWeight.Bold
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 14.dp)
+        ) {
+            // Friends icon
+            IconButton(
+                onClick = { showRequests = true },
+                modifier = Modifier.align(Alignment.CenterStart)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Person,
+                    contentDescription = "Friend Requests",
+                    tint = Color.White
+                )
+            }
+
+            // Title text
+            Text(
+                text = "NowPlay.",
+                fontSize = 22.sp,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
 
         Spacer(modifier = Modifier.height(14.dp))
 
@@ -1105,12 +1199,11 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
             }
         }
 
-
-
         Spacer(modifier = Modifier.height(20.dp))
 
         // display of filtered usernames
-        filteredUsers.forEach { (_, user) ->
+        filteredUsers.forEach { (uid, user) ->
+            val isBlocked = blockedUserIds.contains(uid)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -1143,13 +1236,50 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
 
                 // Right-aligned button
                 Button(
-                    onClick = { /* adding friend to be implemented */ },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                    onClick = {
+                        val currentUser = FirebaseAuth.getInstance().currentUser
+                        val currentUserId = currentUser?.uid ?: return@Button
+
+                        val db = FirebaseFirestore.getInstance()
+
+                        // First, get current user's name + username
+                        db.collection("Users").document(currentUserId).get()
+                            .addOnSuccessListener { currentUserDoc ->
+                                val senderUsername = currentUserDoc.getString("username") ?: return@addOnSuccessListener
+                                val senderFirstName = currentUserDoc.getString("firstName") ?: ""
+
+                                // Send request to target user
+                                db.collection("Users").document(uid)
+                                    .collection("FriendRequests")
+                                    .document(currentUserId)
+                                    .set(
+                                        mapOf(
+                                            "firstName" to senderFirstName,
+                                            "username" to senderUsername
+                                        )
+                                    )
+                                    .addOnSuccessListener {
+                                        Log.d("FRIEND_REQUEST", "Request sent to $uid")
+                                        viewModel.fetchBlockedUsers()
+                                    }
+                                    .addOnFailureListener {
+                                        Log.e("FRIEND_REQUEST", "Failed to send request", it)
+                                    }
+                            }
+                    },
+                    enabled = !isBlocked,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isBlocked) Color.DarkGray else Color.Gray
+                    ),
                     shape = RoundedCornerShape(20.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                     modifier = Modifier.height(32.dp)
                 ) {
-                    Text("Add", fontSize = 12.sp, color = Color.White)
+                    Text(
+                        text = if (isBlocked) "Requested" else "Add",
+                        fontSize = 12.sp,
+                        color = Color.White
+                    )
                 }
             }
         }
@@ -1197,6 +1327,44 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
             }
         }
     }
+
+    // pop out page for friend requests
+    AnimatedVisibility(
+        visible = showRequests,
+        enter = slideInHorizontally { it },
+        exit = slideOutHorizontally { it },
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth()
+                .background(Color(26, 27, 28), RoundedCornerShape(topStart = 2.dp, bottomStart = 2.dp))
+                .padding(16.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Friend Requests", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Close",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clickable { showRequests = false },
+                        tint = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // friend request should show up here TODO
+            }
+        }
+    }
+
 }
 
 @Composable
