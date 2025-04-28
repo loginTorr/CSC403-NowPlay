@@ -113,30 +113,31 @@ data class User(
 )
 
 // database post class (not finished)
-data class Post(
-    val song: String?,
-    val image: Int,
-    val timestamp: Timestamp?
-)
+//data class Post(
+//    val song: String?,
+//    val image: Int,
+//    val timestamp: Timestamp?
+//)
 
-data class HomeScreenPost(
+data class Post(
     val userId: String,
     val songName: String,
     val artistName: String,
     val albumName: String,
     val songPicture: String,
+    val timestamp: Timestamp? = null
 )
 
-fun getFriendsPosts(): List<HomeScreenPost> {
+fun getFriendsPosts(): List<Post> {
     return listOf(
-        HomeScreenPost("1", "Weird Fishes","RadioHead", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        HomeScreenPost("2", "Stir Fry", "Migos", "Culture II","https://i.scdn.co/image/ab67616d0000b273e43e574f285798733979ba66"),
-        HomeScreenPost("3", "sampleSong", "sampleArtist", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        HomeScreenPost("4", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        HomeScreenPost("5", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        HomeScreenPost("6", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        HomeScreenPost("7", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        HomeScreenPost("8", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("1", "Weird Fishes","RadioHead", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("2", "Stir Fry", "Migos", "Culture II","https://i.scdn.co/image/ab67616d0000b273e43e574f285798733979ba66"),
+        Post("3", "sampleSong", "sampleArtist", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("4", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("5", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("6", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("7", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("8", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         )
 }
 
@@ -808,7 +809,7 @@ fun HomeScreenFunction() {
 
 
 @Composable
-fun DisplayFriendPosts(posts: List<HomeScreenPost>) {
+fun DisplayFriendPosts(posts: List<Post>) {
     LazyColumn (
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -821,7 +822,7 @@ fun DisplayFriendPosts(posts: List<HomeScreenPost>) {
 }
 
 @Composable
-fun PostItems(post: HomeScreenPost) {
+fun PostItems(post: Post) {
     var isFullSizeSongPicture by remember { mutableStateOf(true) }
 
     Box(
@@ -1244,8 +1245,11 @@ fun ProfileScreenFunction(username: String) {
             for (document in documents) {
                 numPosts++
                 val post = Post(
-                    song = document.getString("song"),
-                    image = R.drawable.image1,
+                    userId = "${user?.uid}",
+                    artistName = "artist",
+                    albumName = "album",
+                    songName = "song",
+                    songPicture = "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9",
                     timestamp = document.getTimestamp("timestamp"),
                 )
                 posts.add(post)
@@ -1335,17 +1339,21 @@ fun ProfileScreenFunction(username: String) {
             }
             else if (numPosts > 0) {
                 LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                modifier = Modifier.fillMaxHeight().padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(posts.size) { index ->
-                        Image(
-                            painter = painterResource(id = R.drawable.image1),
-                            contentDescription = "Post ${index + 1}",
-                            modifier = Modifier.aspectRatio(1f).clip(RoundedCornerShape(8.dp)),
+                        AsyncImage(
+                            model = posts[index].songPicture,
+                            contentDescription = "Song Picture",
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(RoundedCornerShape(10.dp)),
                             contentScale = ContentScale.Crop
                         )
                     }
