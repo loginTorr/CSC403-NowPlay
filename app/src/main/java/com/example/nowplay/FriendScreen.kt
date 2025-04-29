@@ -1,0 +1,335 @@
+package com.example.nowplay
+
+import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+
+
+@Composable
+fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
+    var searchText by remember { mutableStateOf("") }
+    val allUsers by viewModel.allUsers.collectAsState()
+    var showRequests by rememberSaveable { mutableStateOf(false) }
+    val blockedUserIds by viewModel.blockedUserIds.collectAsState()
+
+    // logging for user list load
+    LaunchedEffect(allUsers) {
+        Log.d("FRIENDS", "Fetched ${allUsers.size} users from FireStore?")
+    }
+
+    // filtered user list
+    val filteredUsers = remember(searchText, allUsers) {
+        try {
+            if (searchText.isBlank()) {
+                emptyList()
+            } else {
+                allUsers.filter {
+                    it.second.username?.startsWith(searchText, ignoreCase = true) == true
+                }.sortedByDescending { it.second.username?.length ?: 0 }
+            }
+        } catch (e: Exception) {
+            Log.e("FRIENDS", "Filtering crashed", e)
+            emptyList()
+        }
+    }
+
+
+    // top bar for logo and friends icon
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 10.dp, start = 20.dp, end = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 14.dp)
+        ) {
+            // Friends icon
+            IconButton(
+                onClick = { showRequests = true },
+                modifier = Modifier.align(Alignment.CenterStart)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Person,
+                    contentDescription = "Friend Requests",
+                    tint = Color.White
+                )
+            }
+
+            // Title text
+            Text(
+                text = "NowPlay.",
+                fontSize = 22.sp,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // search bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search Icon",
+                    tint = Color.LightGray,
+                    modifier = Modifier.size(20.dp)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                BasicTextField(
+                    value = searchText,
+                    onValueChange = { searchText = it },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                    modifier = Modifier.fillMaxWidth(),
+                    decorationBox = { innerTextField ->
+                        if (searchText.isEmpty()) {
+                            Text(
+                                text = "Add or search friends",
+                                color = Color.LightGray,
+                                fontSize = 18.sp
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
+            }
+
+            // clears the search bar button if its not empty
+            if(searchText.isNotBlank()) {
+                IconButton(onClick = { searchText = "" },
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(24.dp))
+                {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear Search",
+                        tint = Color.LightGray,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // display of filtered usernames
+        filteredUsers.forEach { (uid, user) ->
+            val isBlocked = blockedUserIds.contains(uid)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        searchText = user.username ?: ""
+                    }
+                    .padding(vertical = 8.dp)
+            ) {
+                // Left-aligned content (icon + username)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Profile Icon",
+                        tint = Color.LightGray,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .padding(end = 8.dp)
+                    )
+                    Text(
+                        text = user.username ?: "Unknown user",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Right-aligned button
+                Button(
+                    onClick = {
+                        val currentUser = FirebaseAuth.getInstance().currentUser
+                        val currentUserId = currentUser?.uid ?: return@Button
+
+                        val db = FirebaseFirestore.getInstance()
+
+                        // First, get current user's name + username
+                        db.collection("Users").document(currentUserId).get()
+                            .addOnSuccessListener { currentUserDoc ->
+                                val senderUsername = currentUserDoc.getString("username") ?: return@addOnSuccessListener
+                                val senderFirstName = currentUserDoc.getString("firstName") ?: ""
+
+                                // Send request to target user
+                                db.collection("Users").document(uid)
+                                    .collection("FriendRequests")
+                                    .document(currentUserId)
+                                    .set(
+                                        mapOf(
+                                            "firstName" to senderFirstName,
+                                            "username" to senderUsername
+                                        )
+                                    )
+                                    .addOnSuccessListener {
+                                        Log.d("FRIEND_REQUEST", "Request sent to $uid")
+                                        viewModel.fetchBlockedUsers()
+                                    }
+                                    .addOnFailureListener {
+                                        Log.e("FRIEND_REQUEST", "Failed to send request", it)
+                                    }
+                            }
+                    },
+                    enabled = !isBlocked,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isBlocked) Color.DarkGray else Color.Gray
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Text(
+                        text = if (isBlocked) "Requested" else "Add",
+                        fontSize = 12.sp,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+
+
+        Spacer(modifier = Modifier.height(40.dp))
+
+        // invite friends link box
+        Button(
+            onClick = { /* Optional: hook up link sharing */ },
+            colors = ButtonDefaults.buttonColors(Color.DarkGray),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            shape = RoundedCornerShape(20.dp),
+            contentPadding = PaddingValues(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "Profile Picture",
+                    modifier = Modifier.size(40.dp),
+                    tint = Color.LightGray
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Invite friends on BeReal",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                    )
+
+                    Text(
+                        text = "nowplay.al/username",
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                    )
+                }
+            }
+        }
+    }
+
+    // pop out page for friend requests
+    AnimatedVisibility(
+        visible = showRequests,
+        enter = slideInHorizontally { it },
+        exit = slideOutHorizontally { it },
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth()
+                .background(Color(26, 27, 28), RoundedCornerShape(topStart = 2.dp, bottomStart = 2.dp))
+                .padding(16.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Friend Requests", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Close",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clickable { showRequests = false },
+                        tint = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // friend request should show up here TODO
+            }
+        }
+    }
+}
+
