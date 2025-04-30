@@ -41,7 +41,7 @@ data class Post(
     val artistName: String,
     val albumName: String,
     val songPicture: String,
-    val timestamp: Timestamp? = null
+    val timestamp: Timestamp = Timestamp.now()
 )
 
 fun getFriendsPosts(): List<Post> {

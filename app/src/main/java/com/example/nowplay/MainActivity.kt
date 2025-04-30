@@ -115,17 +115,7 @@ data class User(
     val birthday: String? = null
 )
 
-// database post class (not finished)
-//data class Post(
-//    val song: String?,
-//    val image: Int,
-//    val timestamp: Timestamp?
-//)
-
-
 class MainActivity : ComponentActivity() {
-    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState) // had to do this for some reason
 
@@ -340,7 +330,7 @@ class MainActivity : ComponentActivity() {
                                 ChatScreenFunction()
                             }
                             composable<ProfileScreen> {
-                                ProfileScreenFunction(username = usernameState.value)
+                                ProfileScreenFunction(username = usernameState.value, navController = navController)
                             }
                         }
                     }

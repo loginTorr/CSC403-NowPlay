@@ -5,7 +5,6 @@ import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,10 +45,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
@@ -59,7 +57,7 @@ import com.google.firebase.firestore.firestore
 
 @SuppressLint("MutableCollectionMutableState")
 @Composable
-fun ProfileScreenFunction(username: String) {
+fun ProfileScreenFunction(username: String, navController: NavHostController) {
     //val postImages = listOf(R.drawable.image1, R.drawable.image1)
     val posts by remember { mutableStateOf(mutableListOf<Post>()) }
 
@@ -79,11 +77,11 @@ fun ProfileScreenFunction(username: String) {
                     artistName = "artist",
                     albumName = "album",
                     songName = "song",
-                    songPicture = "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9",
-                    timestamp = document.getTimestamp("timestamp"),
+                    songPicture = "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"
                 )
                 posts.add(post)
             }
+            posts.sortByDescending { it.timestamp }
         }
     }
 
@@ -146,7 +144,7 @@ fun ProfileScreenFunction(username: String) {
             }
 
             Button(
-                onClick = {},
+                onClick = { navController.navigate(ProfileScreen) },
                 content = { Text("Share Profile", color = Color.White) },
                 colors = ButtonDefaults.buttonColors(Color.Gray),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp)
@@ -160,7 +158,9 @@ fun ProfileScreenFunction(username: String) {
                         modifier = Modifier.padding(top = 64.dp).align(Alignment.CenterHorizontally)
                     )
                     Button(
-                        onClick = {},
+                        onClick = {
+                            navController.navigate(PostScreen)
+                        },
                         content = { Text("Add your NowPlaying.", color = Color.Black, fontWeight = FontWeight.Bold) },
                         colors = ButtonDefaults.buttonColors(Color.White),
                         modifier = Modifier.padding(top = 16.dp).align(Alignment.CenterHorizontally)
