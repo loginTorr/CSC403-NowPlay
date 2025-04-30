@@ -28,6 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,7 +42,7 @@ data class Post(
     val artistName: String,
     val albumName: String,
     val songPicture: String,
-    val timestamp: Timestamp = Timestamp.now()
+    val timeStamp: Timestamp = Timestamp.now()
 )
 
 fun getFriendsPosts(): List<Post> {
@@ -54,7 +55,15 @@ fun getFriendsPosts(): List<Post> {
         Post("6", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         Post("7", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         Post("8", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-    )
+        )
+}
+
+
+fun getUserPost(): List<Post> {
+    return listOf(
+        Post("1", "Weird Fishes","RadioHead", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        )
+
 }
 
 @Composable
@@ -83,26 +92,67 @@ fun HomeScreenFunction() {
     }
     Spacer(modifier = Modifier.height(20.dp))
 
+    var userPosts = getUserPost()
     var samplePosts = getFriendsPosts()
+
+    DisplayUserPost(userPosts)
+
+
     DisplayFriendPosts(samplePosts)
 }
 
 
 @Composable
-fun DisplayFriendPosts(posts: List<Post>) {
-    LazyColumn (
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        items(posts, key = { HomeScreenPost -> HomeScreenPost.userId }) { HomeScreenPost ->
-            PostItems(HomeScreenPost)
+fun DisplayUserPost(UserPosts: List<Post>) {
+    LazyRow(
+        modifier = Modifier.fillMaxSize()
+        .height(50.dp)
+        .padding(top = 80.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.Top
+        ) {
+        items(UserPosts, key = { Post -> Post.timeStamp }) { Post ->
+            UserItem(Post)
         }
     }
 }
 
 @Composable
-fun PostItems(post: Post) {
+fun UserItem(post: Post) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .size(150.dp)
+            .aspectRatio(1f)
+    ) {
+        AsyncImage(
+            model = post.songPicture,
+            contentDescription = "Song Picture",
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(10.dp)),
+            contentScale = ContentScale.Crop
+        )
+    }
+}
+
+@Composable
+fun DisplayFriendPosts(posts: List<Post>) {
+    LazyColumn (
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 250.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        items(posts, key = { Post -> Post.userId }) { Post ->
+            PostFriendItems(Post)
+        }
+    }
+}
+
+@Composable
+fun PostFriendItems(post: Post) {
     var isFullSizeSongPicture by remember { mutableStateOf(true) }
 
     Box(

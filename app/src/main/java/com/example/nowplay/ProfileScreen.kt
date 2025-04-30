@@ -81,7 +81,7 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
                 )
                 posts.add(post)
             }
-            posts.sortByDescending { it.timestamp }
+            posts.sortByDescending { it.timeStamp }
         }
     }
 
