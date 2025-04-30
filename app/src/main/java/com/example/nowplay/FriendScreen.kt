@@ -1,13 +1,13 @@
 package com.example.nowplay
 
 import android.util.Log
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,25 +34,52 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.foundation.text.BasicTextField
 import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.material.icons.filled.Search
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material.icons.filled.Person
 
 
 @Composable
 fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
+    // remembers state of search bar and collects all users of the database for name searching
     var searchText by remember { mutableStateOf("") }
     val allUsers by viewModel.allUsers.collectAsState()
+
+    // remembers state of the friend requests pop-out page and collects all users that cant be friended
+    // (due to already being friends or an active request
     var showRequests by rememberSaveable { mutableStateOf(false) }
     val blockedUserIds by viewModel.blockedUserIds.collectAsState()
+
+    // grab the current users id for use throughout the function
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val currentUserId = currentUser?.uid ?: return
+
+    // grab state of current incoming friend requests
+    var friendRequests by remember { mutableStateOf<List<Pair<String, Map<String, Any>>>>(emptyList())}
 
     // logging for user list load
     LaunchedEffect(allUsers) {
         Log.d("FRIENDS", "Fetched ${allUsers.size} users from FireStore?")
+    }
+
+    // launch effect to fetch friend requests
+    LaunchedEffect(showRequests) {
+        Log.d("REQUESTS", "Fetching friend requests for $currentUserId")
+        FirebaseFirestore.getInstance()
+            .collection("Users").document(currentUserId)
+            .collection("FriendRequests")
+            .get()
+            .addOnSuccessListener { result ->
+                Log.d("REQUESTS", "Found ${result.documents.size} request(s)")
+                friendRequests = result.documents.mapNotNull { doc ->
+                    Log.d("REQUESTS", "Request doc: ${doc.id} = ${doc.data}")
+                    val data = doc.data ?: return@mapNotNull null
+                    doc.id to data
+                }
+            }
     }
 
     // filtered user list
@@ -204,9 +232,6 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                 // Right-aligned button
                 Button(
                     onClick = {
-                        val currentUser = FirebaseAuth.getInstance().currentUser
-                        val currentUserId = currentUser?.uid ?: return@Button
-
                         val db = FirebaseFirestore.getInstance()
 
                         // First, get current user's name + username
@@ -327,9 +352,139 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // friend request should show up here TODO
+                // if you dont have any friend requests
+                if (friendRequests.isEmpty()) {
+                    Text("No friend requests :(", color = Color.Gray)
+                } else {
+                    // you do have friend requests
+                    friendRequests.forEach { (senderId, data) ->
+                        val firstName = data["firstName"] as? String ?: "unknown"
+                        val username = data["username"] as? String ?: "unknown"
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                        ) {
+                            // The users Icon
+                            Icon(
+                                imageVector = Icons.Default.AccountCircle,
+                                contentDescription = "Profile Icon",
+                                tint = Color.LightGray,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .padding(end = 8.dp)
+                            )
+
+                            // Name and Username
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = firstName,
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "@$username",
+                                    color = Color.Gray,
+                                    fontSize = 14.sp
+                                )
+                            }
+
+                            // Accept button
+                            Button(
+                                onClick = {
+                                    val db = FirebaseFirestore.getInstance()
+
+                                    // add friend to the current users friends list
+                                    db.collection("Users").document(currentUserId)
+                                        .collection("Friends")
+                                        .document(senderId)
+                                        .set(mapOf(
+                                            "firstName" to data["firstName"],
+                                            "username" to data["username"]
+                                        ))
+                                        .addOnSuccessListener {
+                                            // remove the request from your friend requests
+                                            db.collection("Users").document(currentUserId)
+                                                .collection("FriendRequests")
+                                                .document(senderId)
+                                                .delete()
+                                                .addOnSuccessListener {
+                                                    Log.d("FRIEND_REQUEST", "Removed $senderId from friend requests")
+
+                                                    // now refresh after deletion
+                                                    db.collection("Users").document(currentUserId)
+                                                        .collection("FriendRequests")
+                                                        .get()
+                                                        .addOnSuccessListener { result ->
+                                                            friendRequests = result.documents.mapNotNull { doc ->
+                                                                val requestData = doc.data ?: return@mapNotNull null
+                                                                doc.id to requestData
+                                                            }
+                                                        }
+                                                }
+                                                .addOnFailureListener {
+                                                    Log.e("FRIEND_REQUEST", "Failed to remove request", it)
+                                                }
+                                        }
+                                        .addOnFailureListener {
+                                            Log.e("FRIEND_REQUEST", "Failed to add friend", it)
+                                        }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                                shape = RoundedCornerShape(20.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("Accept", fontSize = 12.sp, color = Color.White)
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            // Decline button
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Decline",
+                                tint = Color.LightGray,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clickable {
+                                        // remove the request from your friend requests, refresh requests so you can also be added again
+                                        val db = FirebaseFirestore.getInstance()
+                                        db.collection("Users").document(currentUserId)
+                                            .collection("FriendRequests")
+                                            .document(senderId)
+                                            .delete()
+                                            .addOnSuccessListener {
+                                                Log.d("FRIEND_REQUEST", "Declined request from $senderId")
+
+                                                // now refresh after deletion
+                                                FirebaseFirestore.getInstance()
+                                                    .collection("Users")
+                                                    .document(currentUserId)
+                                                    .collection("FriendRequests")
+                                                    .get()
+                                                    .addOnSuccessListener { result ->
+                                                        friendRequests = result.documents.mapNotNull { doc ->
+                                                            val requestData = doc.data ?: return@mapNotNull null
+                                                            doc.id to requestData
+                                                        }
+                                                    }
+                                            }
+                                            .addOnFailureListener {
+                                                Log.e("FRIEND_REQUEST", "Failed to decline request", it)
+                                            }
+                                    },
+                            )
+
+                        }
+                    }
+                }
             }
         }
     }
+
 }
 
