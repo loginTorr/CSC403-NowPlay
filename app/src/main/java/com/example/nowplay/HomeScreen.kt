@@ -50,10 +50,10 @@ data class Post(
 
 fun getFriendsPosts(): List<Post> {
     return listOf(
-        Post("1", "Weird Fishes","RadioHead", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        Post("2", "Stir Fry", "Migos", "Culture II","https://i.scdn.co/image/ab67616d0000b273e43e574f285798733979ba66"),
-        Post("3", "Dance, Dance", "Fall Out Boy", "From Under The Cork Tree", "https://i.scdn.co/image/ab67616d0000b27371565eda831124be86c603d5"),
-        Post("4", "Washing Machine Heart", "Mitski", "Be The Cowboy","https://i.scdn.co/image/ab67616d0000b273c428f67b4a9b7e1114dfc117"),
+        Post("NotNick", "Weird Fishes","RadioHead", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("Aiden", "Stir Fry", "Migos", "Culture II","https://i.scdn.co/image/ab67616d0000b273e43e574f285798733979ba66"),
+        Post("Tommy", "Dance, Dance", "Fall Out Boy", "From Under The Cork Tree", "https://i.scdn.co/image/ab67616d0000b27371565eda831124be86c603d5"),
+        Post("MoseyAlong", "Washing Machine Heart", "Mitski", "Be The Cowboy","https://i.scdn.co/image/ab67616d0000b273c428f67b4a9b7e1114dfc117"),
         Post("5", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         Post("6", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         Post("7", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
