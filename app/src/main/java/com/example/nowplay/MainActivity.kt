@@ -304,9 +304,15 @@ class FriendsViewModel : ViewModel() {
     private val _blockedUserIds = MutableStateFlow<Set<String>>(emptySet())
     val blockedUserIds: StateFlow<Set<String>> = _blockedUserIds
 
+    private val _friendUserIds = MutableStateFlow<Set<String>>(emptySet())
+    val friendUserIds: StateFlow<Set<String>> = _friendUserIds
+
+    private val _incomingRequestUserIds = MutableStateFlow<Set<String>>(emptySet())
+    val incomingRequestUserIds: StateFlow<Set<String>> = _incomingRequestUserIds
+
     init {
         fetchUsers()
-        fetchBlockedUsers()
+        fetchBlockedAndFriendUsers()
     }
 
     private fun fetchUsers() {
@@ -324,15 +330,17 @@ class FriendsViewModel : ViewModel() {
     }
 
     // gets the users that you sent friend requests to which will be blocked
-    fun fetchBlockedUsers() {
+    fun fetchBlockedAndFriendUsers() {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val db = FirebaseFirestore.getInstance()
         val blockedIds = mutableSetOf<String>()
+        val friendIds = mutableSetOf<String>()
+        val incomingRequestIds = mutableSetOf<String>()
 
         db.collection("Users").get().addOnSuccessListener { users ->
             var pendingCount = users.size()
             if (pendingCount == 0) {
-                finalizeBlockedUsers(blockedIds, currentUserId)
+                finalizeBlockedUsers(blockedIds, friendIds, incomingRequestIds, currentUserId)
                 return@addOnSuccessListener
             }
 
@@ -348,14 +356,14 @@ class FriendsViewModel : ViewModel() {
                         }
                         pendingCount--
                         if (pendingCount == 0) {
-                            finalizeBlockedUsers(blockedIds, currentUserId)
+                            finalizeBlockedUsers(blockedIds, friendIds, incomingRequestIds, currentUserId)
                         }
                     }
                     .addOnFailureListener {
                         Log.e("BLOCKED_USERS", "Error checking request for $otherUserId", it)
                         pendingCount--
                         if (pendingCount == 0) {
-                            finalizeBlockedUsers(blockedIds, currentUserId)
+                            finalizeBlockedUsers(blockedIds, friendIds, incomingRequestIds, currentUserId)
                         }
                     }
             }
@@ -365,18 +373,42 @@ class FriendsViewModel : ViewModel() {
     }
 
     // also add the users you are ALREADY friends with to the blocked list
-    private fun finalizeBlockedUsers(blockedIds: MutableSet<String>, currentUserId: String) {
+    private fun finalizeBlockedUsers(blockedIds: MutableSet<String>, friendIds: MutableSet<String>, incomingRequestIds: MutableSet<String>, currentUserId: String) {
         val db = FirebaseFirestore.getInstance()
         db.collection("Users").document(currentUserId)
             .collection("Friends")
             .get()
             .addOnSuccessListener { friendsSnapshot ->
                 friendsSnapshot.documents.forEach { doc ->
+                    friendIds.add(doc.id)
                     blockedIds.add(doc.id)
                 }
-                // lists out the users that you CANNOT send another request to
-                Log.d("BLOCKED_USERS", "Final blocked list: $blockedIds")
-                _blockedUserIds.value = blockedIds.toSet()
+
+                // check who sent you a request (incoming)
+                db.collection("Users").document(currentUserId)
+                    .collection("FriendRequests")
+                    .get()
+                    .addOnSuccessListener { requestsSnapshot ->
+                        requestsSnapshot.documents.forEach { doc ->
+                            incomingRequestIds.add(doc.id)
+                        }
+
+
+                        // lists out the users that you CANNOT send another request to
+                        Log.d("BLOCKED_USERS", "Final blocked list: $blockedIds")
+                        _blockedUserIds.value = blockedIds.toSet()
+
+                        // lists out the users that you are already friends with
+                        Log.d("BLOCKED_USERS", "Final friend list: $friendIds")
+                        _friendUserIds.value = friendIds.toSet()
+
+                        // lists out the users that sent you a request
+                        Log.d("BLOCKED_USERS", "Final incoming request list: $incomingRequestIds")
+                        _incomingRequestUserIds.value = incomingRequestIds.toSet()
+                    }
+                    .addOnFailureListener {
+                        Log.e("BLOCKED_USERS", "Failed to fetch incoming requests", it)
+                    }
             }
             .addOnFailureListener { // error checking if failed to fetch friends or requests
                 Log.e("BLOCKED_USERS", "Failed to fetch friends", it)

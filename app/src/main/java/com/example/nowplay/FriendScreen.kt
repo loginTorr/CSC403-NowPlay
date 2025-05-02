@@ -6,8 +6,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,6 +39,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.runtime.LaunchedEffect
 import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.filled.ArrowBack
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.material.icons.filled.Search
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -52,13 +56,22 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
     // (due to already being friends or an active request
     var showRequests by rememberSaveable { mutableStateOf(false) }
     val blockedUserIds by viewModel.blockedUserIds.collectAsState()
+    val friendUserIds by viewModel.friendUserIds.collectAsState()
+    val incomingRequestUserIds by viewModel.incomingRequestUserIds.collectAsState()
 
     // grab the current users id for use throughout the function
     val currentUser = FirebaseAuth.getInstance().currentUser
     val currentUserId = currentUser?.uid ?: return
 
+    // grab the state of selected friends for profile card viewing
+    var selectedFriend by remember { mutableStateOf<Pair<String, Map<String, Any>>?>(null) }
+    var showFriendSheet by remember { mutableStateOf(false) }
+
     // grab state of current incoming friend requests
     var friendRequests by remember { mutableStateOf<List<Pair<String, Map<String, Any>>>>(emptyList())}
+
+    // grab the state of the friends list to be displayed
+    var friendsList by remember { mutableStateOf<List<Pair<String, Map<String, Any>>>>(emptyList()) }
 
     // logging for user list load
     LaunchedEffect(allUsers) {
@@ -78,6 +91,20 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                     Log.d("REQUESTS", "Request doc: ${doc.id} = ${doc.data}")
                     val data = doc.data ?: return@mapNotNull null
                     doc.id to data
+                }
+            }
+    }
+
+    // launch effect to fetch friends list
+    LaunchedEffect(Unit) {
+        FirebaseFirestore.getInstance()
+            .collection("Users").document(currentUserId)
+            .collection("Friends")
+            .get()
+            .addOnSuccessListener { result ->
+                friendsList = result.documents.mapNotNull { doc ->
+                    val friendData = doc.data ?: return@mapNotNull null
+                    doc.id to friendData
                 }
             }
     }
@@ -199,6 +226,8 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
         // display of filtered usernames
         filteredUsers.forEach { (uid, user) ->
             val isBlocked = blockedUserIds.contains(uid)
+            val isFriend = friendUserIds.contains(uid)
+            val hasIncomingRequest = incomingRequestUserIds.contains(uid)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -232,43 +261,89 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                 // Right-aligned button
                 Button(
                     onClick = {
-                        val db = FirebaseFirestore.getInstance()
+                        when {
+                            isFriend -> {
+                                Log.d("FRIENDS", "Open chat with ${user.username}")
+                                // TODO: Navigate to chat
+                            }
+                            hasIncomingRequest -> {
+                                // accept logic to prevent duplicate requests
+                                val db = FirebaseFirestore.getInstance()
 
-                        // First, get current user's name + username
-                        db.collection("Users").document(currentUserId).get()
-                            .addOnSuccessListener { currentUserDoc ->
-                                val senderUsername = currentUserDoc.getString("username") ?: return@addOnSuccessListener
-                                val senderFirstName = currentUserDoc.getString("firstName") ?: ""
-
-                                // Send request to target user
-                                db.collection("Users").document(uid)
-                                    .collection("FriendRequests")
-                                    .document(currentUserId)
-                                    .set(
-                                        mapOf(
-                                            "firstName" to senderFirstName,
-                                            "username" to senderUsername
-                                        )
-                                    )
+                                db.collection("Users").document(currentUserId)
+                                    .collection("Friends")
+                                    .document(uid)
+                                    .set(mapOf(
+                                        "firstName" to user.firstName,
+                                        "username" to user.username
+                                    ))
                                     .addOnSuccessListener {
-                                        Log.d("FRIEND_REQUEST", "Request sent to $uid")
-                                        viewModel.fetchBlockedUsers()
-                                    }
-                                    .addOnFailureListener {
-                                        Log.e("FRIEND_REQUEST", "Failed to send request", it)
+                                        // delete the friend requests from the db
+                                        db.collection("Users").document(currentUserId)
+                                            .collection("FriendRequests")
+                                            .document(uid)
+                                            .delete()
+                                            .addOnSuccessListener {
+                                                Log.d("FRIENDS", "Accepted request from $uid")
+
+                                                // update
+                                                viewModel.fetchBlockedAndFriendUsers()
+                                            }
                                     }
                             }
+                            isBlocked -> {
+                                // do nothing
+                            }
+                            else -> {
+                                // send request
+                                val db = FirebaseFirestore.getInstance()
+                                db.collection("Users").document(currentUserId).get()
+                                    .addOnSuccessListener { currentUserDoc ->
+                                        val senderUsername = currentUserDoc.getString("username")
+                                            ?: return@addOnSuccessListener
+                                        val senderFirstName =
+                                            currentUserDoc.getString("firstName") ?: ""
+
+                                        db.collection("Users").document(uid)
+                                            .collection("FriendRequests")
+                                            .document(currentUserId)
+                                            .set(
+                                                mapOf(
+                                                    "firstName" to senderFirstName,
+                                                    "username" to senderUsername
+                                                )
+                                            )
+                                            .addOnSuccessListener {
+                                                Log.d("FRIEND_REQUEST", "Request sent to $uid")
+                                                viewModel.fetchBlockedAndFriendUsers()
+                                            }
+                                            .addOnFailureListener {
+                                                Log.e(
+                                                    "FRIEND_REQUEST",
+                                                    "Failed to send request",
+                                                    it
+                                                )
+                                            }
+
+                                    }
+                            }
+                        }
                     },
-                    enabled = !isBlocked,
+                    enabled = !(isBlocked && !isFriend),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isBlocked) Color.DarkGray else Color.Gray
+                        containerColor = if (isFriend) Color.Gray else if (isBlocked) Color.DarkGray else Color.Gray
                     ),
                     shape = RoundedCornerShape(20.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                     modifier = Modifier.height(32.dp)
                 ) {
                     Text(
-                        text = if (isBlocked) "Requested" else "Add",
+                        text = when {
+                            isFriend -> "Chat"
+                            hasIncomingRequest -> "Accept"
+                            isBlocked -> "Requested"
+                            else -> "Add"
+                        },
                         fontSize = 12.sp,
                         color = Color.White
                     )
@@ -315,6 +390,191 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                         color = Color.Gray,
                         fontSize = 14.sp,
                     )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(
+            text = "My Friends",
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        if (friendsList.isEmpty()) {
+            Text("No friends yet :(", color = Color.Gray)
+        } else {
+            friendsList.forEach { (uid, data) ->
+                val firstName = data["firstName"] as? String ?: "unknown"
+                val username = data["username"] as? String ?: "unknown_user"
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            selectedFriend = uid to data
+                            showFriendSheet = true
+                        }
+                        .padding(vertical = 8.dp)
+                ) {
+                    // Icon
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Profile Icon",
+                        tint = Color.LightGray,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .padding(end = 8.dp)
+                    )
+
+                    // Name and Username
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = firstName,
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Text(
+                            text = "@$username",
+                            color = Color.Gray,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    // Chat Button
+                    Button(
+                        onClick = { /* Handle chat button click */ },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                        shape = RoundedCornerShape(20.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("Chat", fontSize = 12.sp, color = Color.White)
+                    }
+                }
+            }
+
+        }
+
+    }
+
+    // friend card popout
+    AnimatedVisibility(
+        visible = showFriendSheet && selectedFriend != null,
+        enter = slideInVertically(
+            initialOffsetY = { fullHeight -> fullHeight },
+            animationSpec = tween(durationMillis = 300)
+        ),
+        exit = slideOutVertically(
+            targetOffsetY = { fullHeight -> fullHeight },
+            animationSpec = tween(durationMillis = 300)
+        )
+    ) {
+        val (uid, data) = selectedFriend!!
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(26, 27, 28), RoundedCornerShape(topStart = 2.dp, bottomStart = 2.dp))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp)
+            ) {
+                // Back arrow
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clickable { showFriendSheet = false }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(40.dp))
+
+                // Profile icon
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "Profile Icon",
+                    tint = Color.LightGray,
+                    modifier = Modifier
+                        .size(100.dp)
+                        .align(Alignment.CenterHorizontally)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = data["firstName"] as? String ?: "Unknown",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+
+                Text(
+                    text = "@${data["username"] as? String ?: "user"}",
+                    color = Color.Gray,
+                    fontSize = 16.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = { },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Message", fontSize = 16.sp, color = Color.White)
+                }
+
+                // remove friend button
+                TextButton(
+                    onClick = {
+                        val db = FirebaseFirestore.getInstance()
+                        db.collection("Users").document(currentUserId)
+                            .collection("Friends")
+                            .document(uid)
+                            .delete()
+                            .addOnSuccessListener {
+                                Log.d("FRIENDS", "Removed $uid from friends")
+                                showFriendSheet = false
+
+                                // now refresh the friend list
+                                db.collection("Users").document(currentUserId)
+                                    .collection("Friends")
+                                    .get()
+                                    .addOnSuccessListener { result ->
+                                        friendsList = result.documents.mapNotNull { doc ->
+                                            val friendData = doc.data ?: return@mapNotNull null
+                                            doc.id to friendData
+                                        }
+                                    }
+                            }
+                            .addOnFailureListener {
+                                Log.e("FRIENDS", "Failed to remove friend", it)
+                            }
+                    },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("Remove Friend", fontSize = 14.sp, color = Color.White)
                 }
             }
         }
