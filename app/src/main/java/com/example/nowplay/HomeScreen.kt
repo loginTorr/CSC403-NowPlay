@@ -24,8 +24,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -50,7 +48,7 @@ data class Post(
 
 fun getFriendsPosts(): List<Post> {
     return listOf(
-        Post("NotNick", "Weird Fishes","RadioHead", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("NotNick", "Weird Fishes","RadioHead", "In Rainbows", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         Post("Aiden", "Stir Fry", "Migos", "Culture II","https://i.scdn.co/image/ab67616d0000b273e43e574f285798733979ba66"),
         Post("Tommy", "Dance, Dance", "Fall Out Boy", "From Under The Cork Tree", "https://i.scdn.co/image/ab67616d0000b27371565eda831124be86c603d5"),
         Post("MoseyAlong", "Washing Machine Heart", "Mitski", "Be The Cowboy","https://i.scdn.co/image/ab67616d0000b273c428f67b4a9b7e1114dfc117"),
@@ -103,25 +101,26 @@ fun HomeScreenFunction() {
 
 @Composable
 fun DisplayHomePageFeed(UserPosts: List<Post>, posts: List<Post>) {
-    LazyRow(
-        modifier = Modifier.fillMaxSize()
-            .height(50.dp)
-            .padding(top = 60.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.Top
-    ) {
-        items(UserPosts, key = { Post -> Post.timeStamp }) { Post ->
-            UserItem(Post)
-        }
-    }
 
     LazyColumn (
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 250.dp),
+            .padding(top = 80.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        item {
+            LazyRow(
+                modifier = Modifier.fillMaxSize()
+                    .height(230.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.Top
+            ) {
+                items(UserPosts, key = { Post -> Post.timeStamp }) { Post ->
+                    UserItem(Post)
+                }
+            }
+        }
         items(posts, key = { Post -> Post.userId }) { Post ->
             PostFriendItems(Post)
         }
@@ -135,7 +134,7 @@ fun UserItem(post: Post) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .size(150.dp)
+            .size(200.dp)
             .aspectRatio(1f)
             .clickable { }
 
@@ -223,7 +222,7 @@ fun PostFriendItems(post: Post) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
+                .aspectRatio(0.8f)
                 .padding(top = 56.dp) // Offset for user info
         ) {
             // Song Picture and Song Info Cards
@@ -238,7 +237,7 @@ fun PostFriendItems(post: Post) {
                         contentDescription = "Song Picture",
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(10.dp)),
+                            .clip(RoundedCornerShape(12.dp)),
                         contentScale = ContentScale.Crop
                     )
 
