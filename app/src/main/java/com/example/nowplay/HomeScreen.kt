@@ -49,8 +49,8 @@ fun getFriendsPosts(): List<Post> {
     return listOf(
         Post("1", "Weird Fishes","RadioHead", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         Post("2", "Stir Fry", "Migos", "Culture II","https://i.scdn.co/image/ab67616d0000b273e43e574f285798733979ba66"),
-        Post("3", "sampleSong", "sampleArtist", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        Post("4", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("3", "Dance, Dance", "Fall Out Boy", "From Under The Cork Tree", "https://i.scdn.co/image/ab67616d0000b27371565eda831124be86c603d5"),
+        Post("4", "Washing Machine Heart", "Mitski", "Be The Cowboy","https://i.scdn.co/image/ab67616d0000b273c428f67b4a9b7e1114dfc117"),
         Post("5", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         Post("6", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         Post("7", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
@@ -61,9 +61,8 @@ fun getFriendsPosts(): List<Post> {
 
 fun getUserPost(): List<Post> {
     return listOf(
-        Post("1", "Weird Fishes","RadioHead", "Weird Fishes", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
+        Post("1", "Shiver","Coldplay", "Parachutes", "https://i.scdn.co/image/ab67616d0000b2739164bafe9aaa168d93f4816a"),
         )
-
 }
 
 @Composable
@@ -95,27 +94,38 @@ fun HomeScreenFunction() {
     var userPosts = getUserPost()
     var samplePosts = getFriendsPosts()
 
-    DisplayUserPost(userPosts)
-
-
-    DisplayFriendPosts(samplePosts)
+    DisplayHomePageFeed(userPosts, samplePosts)
 }
 
 
 @Composable
-fun DisplayUserPost(UserPosts: List<Post>) {
+fun DisplayHomePageFeed(UserPosts: List<Post>, posts: List<Post>) {
     LazyRow(
         modifier = Modifier.fillMaxSize()
-        .height(50.dp)
-        .padding(top = 80.dp),
+            .height(50.dp)
+            .padding(top = 60.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.Top
-        ) {
+    ) {
         items(UserPosts, key = { Post -> Post.timeStamp }) { Post ->
             UserItem(Post)
         }
     }
+
+    LazyColumn (
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 250.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        items(posts, key = { Post -> Post.userId }) { Post ->
+            PostFriendItems(Post)
+        }
+    }
+
 }
+
 
 @Composable
 fun UserItem(post: Post) {
@@ -133,20 +143,39 @@ fun UserItem(post: Post) {
                 .clip(RoundedCornerShape(10.dp)),
             contentScale = ContentScale.Crop
         )
-    }
-}
-
-@Composable
-fun DisplayFriendPosts(posts: List<Post>) {
-    LazyColumn (
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 250.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        items(posts, key = { Post -> Post.userId }) { Post ->
-            PostFriendItems(Post)
+        Box(
+            modifier = Modifier
+                .size(70.dp)
+                .padding(8.dp)
+                .background(Color.Gray.copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp)
+            ) {
+                Text(
+                    text = post.songName,
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = post.artistName,
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = post.albumName,
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
