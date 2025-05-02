@@ -30,6 +30,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
@@ -134,6 +137,8 @@ fun UserItem(post: Post) {
             .fillMaxWidth()
             .size(150.dp)
             .aspectRatio(1f)
+            .clickable { }
+
     ) {
         AsyncImage(
             model = post.songPicture,
@@ -142,6 +147,7 @@ fun UserItem(post: Post) {
                 .fillMaxSize()
                 .clip(RoundedCornerShape(10.dp)),
             contentScale = ContentScale.Crop
+
         )
         Box(
             modifier = Modifier
@@ -332,34 +338,56 @@ fun PostFriendItems(post: Post) {
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 16.dp)
-                .offset(y = 56.dp) // Align with main content
+                .offset(y = 100.dp), // Align with main content
+                verticalArrangement = Arrangement.spacedBy(4.dp) // Reduce spacing here
+
         ) {
-            Button(
-                onClick = { /* TODO: Implement button functionality */ },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-            ) {
-                Text("Button 1")
+            IconButton (
+                onClick = {/* TODO: Implement button functionality */ },
+            )
+            {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription =  "",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(40.dp)
+                )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
-                onClick = { /* TODO: Implement button functionality */ },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-            ) {
-                Text("Button 2")
+
+            IconButton (
+                onClick = {/* TODO: Implement button functionality */ },
+
+            )
+            {
+                Icon(
+                    Icons.Filled.AddCircle,
+                    contentDescription =  "",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(40.dp)
+                )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
-                onClick = { /* TODO: Implement button functionality */ },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-            ) {
-                Text("Button 3")
+            IconButton (
+                onClick = {/* TODO: Implement button functionality */ },
+
+            )
+            {
+                Icon(
+                    Icons.Filled.Face,
+                    contentDescription =  "",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(40.dp)
+                )
             }
         }
     }
 }
+
+
 
