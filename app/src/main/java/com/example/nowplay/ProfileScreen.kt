@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
@@ -54,18 +55,29 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.firestore
 
+var currentPost: Post? = null
 
 @SuppressLint("MutableCollectionMutableState")
 @Composable
 fun ProfileScreenFunction(username: String, navController: NavHostController) {
-    //val postImages = listOf(R.drawable.image1, R.drawable.image1)
     val posts by remember { mutableStateOf(mutableListOf<Post>()) }
 
     // Set Up Database
     val database = Firebase.firestore
     val user = FirebaseAuth.getInstance().currentUser
     val postCollection = database.collection("/Users/${user?.uid}/Posts")
+    val friendsCollection = database.collection("/Users/${user?.uid}/Friends")
     var numPosts by rememberSaveable { mutableIntStateOf(0) }
+    var numFriends by rememberSaveable { mutableIntStateOf(0) }
+
+    // Count number of friends of user
+    LaunchedEffect(key1 = true) {
+        friendsCollection.get().addOnSuccessListener { documents ->
+            for (document in documents) {
+                numFriends++
+            }
+        }
+    }
 
     // Count number of posts of user
     LaunchedEffect(key1 = true) {
@@ -138,13 +150,13 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
                     Text("NowPlays", color = Color.Gray)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("0", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(numFriends.toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text("Friends", color = Color.Gray)
                 }
             }
 
             Button(
-                onClick = { navController.navigate(ProfileScreen) },
+                onClick = {  },
                 content = { Text("Share Profile", color = Color.White) },
                 colors = ButtonDefaults.buttonColors(Color.Gray),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp)
@@ -181,10 +193,15 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
                         AsyncImage(
                             model = posts[index].songPicture,
                             contentDescription = "Song Picture",
-                            modifier = Modifier
+                            modifier = Modifier.fillMaxSize()
                                 .size(120.dp)
-                                .clip(RoundedCornerShape(10.dp)),
-                            contentScale = ContentScale.Crop
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.Gray)
+                                .clickable {
+                                    currentPost = posts[index]
+                                    navController.navigate(ViewPostScreen)
+                                },
+                            contentScale = ContentScale.Crop,
                         )
                     }
                 }
@@ -235,6 +252,44 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun ViewPostScreenFunction(navController: NavHostController) {
+    AnimatedVisibility(
+        visible = true,
+        enter = slideInHorizontally { it },
+        exit = slideOutHorizontally { it },
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(26, 27, 28))
+        ){
+            Column {
+                Row (
+                    modifier = Modifier.fillMaxWidth()
+                ){
+                    Box(modifier = Modifier.clickable { navController.navigate(ProfileScreen) }) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Back", modifier = Modifier.size(40.dp), tint = Color.White)
+                    }
+                    Text("My NowPlaying.", modifier = Modifier.align(Alignment.CenterVertically).padding(start = 90.dp), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+                Text(currentPost?.timeStamp.toString().removeRange(10, 23), modifier = Modifier.align(Alignment.CenterHorizontally), color = Color.Gray, fontSize = 15.sp)
+                AsyncImage(
+                    model = currentPost?.songPicture,
+                    contentDescription = "Song Picture",
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .size(400.dp)
+                        .align(Alignment.CenterHorizontally),
+                    contentScale = ContentScale.Crop,
+                )
+                Text("${currentPost?.songName}", modifier = Modifier.padding(start = 16.dp, top = 16.dp), color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                Text("${currentPost?.artistName}", modifier = Modifier.padding(start = 16.dp, top = 5.dp), color = Color.Gray, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

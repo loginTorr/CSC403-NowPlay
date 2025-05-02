@@ -126,7 +126,7 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
 
             // Title text
             Text(
-                text = "NowPlay.",
+                text = "NowPlaying.",
                 fontSize = 22.sp,
                 color = Color.White,
                 fontWeight = FontWeight.Bold,

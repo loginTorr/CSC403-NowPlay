@@ -61,6 +61,8 @@ object PostScreen
 object ChatScreen
 @Serializable
 object ProfileScreen
+@Serializable
+object ViewPostScreen
 
 @Composable
 fun LoginSignupScreenFunction(navController: NavController) {
@@ -110,7 +112,6 @@ fun LoginScreenFunction(navController: NavController) {
     val username = remember { mutableStateOf("") }
     val verificationId = remember { mutableStateOf<String?>(null) }
     val smsCode = remember { mutableStateOf("") }
-    val isLoading = remember { mutableStateOf(false) }
     val errorMessage = remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 

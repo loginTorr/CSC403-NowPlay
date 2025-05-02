@@ -33,7 +33,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
-import com.google.firebase.Timestamp
+import java.util.Date
 
 
 data class Post(
@@ -42,7 +42,7 @@ data class Post(
     val artistName: String,
     val albumName: String,
     val songPicture: String,
-    val timeStamp: Timestamp = Timestamp.now()
+    val timeStamp: Date = Date()
 )
 
 fun getFriendsPosts(): List<Post> {
@@ -83,7 +83,7 @@ fun HomeScreenFunction() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
-        Text(text = "NowPlay.",
+        Text(text = "NowPlaying.",
             fontSize = 22.sp,
             color = Color.White,
             fontWeight = FontWeight.Bold,
@@ -91,8 +91,8 @@ fun HomeScreenFunction() {
     }
     Spacer(modifier = Modifier.height(20.dp))
 
-    var userPosts = getUserPost()
-    var samplePosts = getFriendsPosts()
+    val userPosts = getUserPost()
+    val samplePosts = getFriendsPosts()
 
     DisplayHomePageFeed(userPosts, samplePosts)
 }
@@ -187,7 +187,7 @@ fun PostFriendItems(post: Post) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.Black, shape = RoundedCornerShape(20.dp))
+            .background(Color(26, 27, 28))
             .padding(16.dp)
     ) {
         // User Info (Static)

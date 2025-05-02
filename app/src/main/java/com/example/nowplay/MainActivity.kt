@@ -1,7 +1,5 @@
 package com.example.nowplay
 
-import android.annotation.SuppressLint
-import com.google.firebase.Firebase
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -9,21 +7,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.Email
@@ -37,65 +27,26 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.*
 import androidx.navigation.compose.rememberNavController
 import com.example.nowplay.ui.theme.NowPlayTheme
-import kotlinx.serialization.Serializable
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
-import android.app.Activity
-import android.content.Intent
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.ui.platform.LocalContext
-import com.google.firebase.FirebaseException
-import com.google.firebase.auth.*
-import com.google.firebase.firestore.firestore
-import java.util.concurrent.TimeUnit
 import com.google.firebase.firestore.FirebaseFirestore
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.OutlinedTextField
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import coil.compose.AsyncImage
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import com.google.android.gms.tasks.Tasks
-import com.google.firebase.firestore.DocumentSnapshot
 
 data class BottomNavigationItem(
     val screen: Any,
@@ -125,14 +76,12 @@ class MainActivity : ComponentActivity() {
         setContent {
 
             val usernameState = remember { mutableStateOf("Loading...") }
-            val context = LocalContext.current
 
             LaunchedEffect(Unit) {
                 val auth = FirebaseAuth.getInstance()
                 val db = FirebaseFirestore.getInstance()
 
-                val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-                    val user = firebaseAuth.currentUser
+                val listener = FirebaseAuth.AuthStateListener { _ ->
                     if (user != null) {
                         val uid = user.uid
                         db.collection("Users").document(uid)
@@ -172,7 +121,8 @@ class MainActivity : ComponentActivity() {
                     PhoneNumberScreen::class.qualifiedName,
                     UsernameScreen::class.qualifiedName,
                     LoginScreen::class.qualifiedName,
-                    LoginSignupScreen::class.qualifiedName
+                    LoginSignupScreen::class.qualifiedName,
+                    ViewPostScreen::class.qualifiedName
                 )
 
                 val showBottomBar = currentDestination?.route !in onboardingScreens
@@ -332,6 +282,9 @@ class MainActivity : ComponentActivity() {
                             composable<ProfileScreen> {
                                 ProfileScreenFunction(username = usernameState.value, navController = navController)
                             }
+                            composable<ViewPostScreen> {
+                                ViewPostScreenFunction(navController = navController)
+                            }
                         }
                     }
                 }
@@ -356,7 +309,7 @@ class FriendsViewModel : ViewModel() {
         fetchBlockedUsers()
     }
 
-    fun fetchUsers() {
+    private fun fetchUsers() {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
         FirebaseFirestore.getInstance().collection("Users").get().addOnSuccessListener { result ->
             _allUsers.value = result.documents.mapNotNull { doc ->
