@@ -337,7 +337,7 @@ fun PostFriendItems(post: Post) {
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .offset(y = 100.dp), // Align with main content
+                .offset(y = 150.dp), // Align with main content
                 verticalArrangement = Arrangement.spacedBy(4.dp) // Reduce spacing here
 
         ) {
