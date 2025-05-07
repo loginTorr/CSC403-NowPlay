@@ -19,6 +19,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appAuthRedirectScheme"] = "nowplay"
     }
 
     buildTypes {
@@ -77,4 +78,6 @@ dependencies {
     implementation(libs.firebase.inappmessaging.display)
 
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("net.openid:appauth:0.11.1")
+
 }

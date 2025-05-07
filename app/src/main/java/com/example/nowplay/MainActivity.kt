@@ -47,6 +47,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 
 data class BottomNavigationItem(
     val screen: Any,
@@ -67,12 +70,27 @@ data class User(
 )
 
 class MainActivity : ComponentActivity() {
+    private lateinit var spotifyAuthManager: SpotifyAuthManager
+    private val accessToken = mutableStateOf<String?>(null)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState) // had to do this for some reason
 
         enableEdgeToEdge()
         val user = FirebaseAuth.getInstance().currentUser
         val startDestination: Any = if (user != null) HomeScreen else LoginSignupScreen
+        spotifyAuthManager = SpotifyAuthManager(this)
+
+        intent?.data
+            ?.takeIf { it.toString().startsWith("nowplay://callback") }
+            ?.let {
+                handleSpotifyRedirect(intent)
+            }
+        getSharedPreferences("spotify_auth", MODE_PRIVATE)
+            .getString("access_token", null)
+            ?.let { token ->
+                accessToken.value = token
+            }
+
         setContent {
 
             val usernameState = remember { mutableStateOf("Loading...") }
@@ -275,7 +293,10 @@ class MainActivity : ComponentActivity() {
                                 FriendsScreenFunction(viewModel())
                             }
                             composable<PostScreen> {
-                                PostScreenFunction()
+                                PostScreenFunction(
+                                    spotifyAuthManager = spotifyAuthManager,
+                                    accessToken = accessToken
+                                )
                             }
                             composable<ChatScreen> {
                                 ChatScreenFunction()
@@ -292,6 +313,32 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
+        }
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.data
+            ?.takeIf { it.toString().startsWith("nowplay://callback") }
+            ?.let {
+                handleSpotifyRedirect(intent)   // ← again, pass the Intent
+            }
+    }
+
+    private fun handleSpotifyRedirect(intent: Intent) {
+        Log.d("SPOTIFY", "Redirect Intent received: ${intent.data}")
+        spotifyAuthManager.handleRedirectIntent(intent) { success, token ->
+            if (success && token != null) {
+                accessToken.value = token
+                // Persist the token
+                getSharedPreferences("spotify_auth", MODE_PRIVATE)
+                    .edit()
+                    .putString("access_token", token)
+                    .apply()
+                Log.d("SPOTIFY", "Token successfully stored: $token")
+            } else {
+                Log.e("SPOTIFY", "Token exchange failed")
             }
         }
     }
