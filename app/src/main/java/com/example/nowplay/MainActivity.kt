@@ -122,7 +122,8 @@ class MainActivity : ComponentActivity() {
                     UsernameScreen::class.qualifiedName,
                     LoginScreen::class.qualifiedName,
                     LoginSignupScreen::class.qualifiedName,
-                    ViewPostScreen::class.qualifiedName
+                    ViewPostScreen::class.qualifiedName,
+                    SettingsScreen::class.qualifiedName
                 )
 
                 val showBottomBar = currentDestination?.route !in onboardingScreens
@@ -284,6 +285,9 @@ class MainActivity : ComponentActivity() {
                             }
                             composable<ViewPostScreen> {
                                 ViewPostScreenFunction(navController = navController)
+                            }
+                            composable<SettingsScreen> {
+                                SettingsScreenFunction(username = usernameState.value, navController = navController)
                             }
                         }
                     }

@@ -1,7 +1,6 @@
 package com.example.nowplay
 
 import android.annotation.SuppressLint
-import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -25,11 +24,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -97,8 +93,7 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
         }
     }
 
-    var showSettings by rememberSaveable { mutableStateOf(false) } // false to hide settings off the rip
-    val context = LocalContext.current
+
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -110,7 +105,7 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
                 contentAlignment = Alignment.TopEnd
             ) {
                 Button(
-                    onClick = { showSettings = true },
+                    onClick = { navController.navigate(SettingsScreen) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                     contentPadding = PaddingValues(0.dp),
                     modifier = Modifier.size(20.dp)
@@ -207,53 +202,6 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
                 }
             }
         }
-
-        // for the sliding settings page
-        AnimatedVisibility(
-            visible = showSettings,
-            enter = slideInHorizontally { it },
-            exit = slideOutHorizontally { it },
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth()
-                    .align(Alignment.CenterEnd)
-                    .background(Color.DarkGray, RoundedCornerShape(topStart = 48.dp, bottomStart = 16.dp))
-                    .padding(16.dp)
-            ) {
-                Column (
-                    modifier = Modifier.fillMaxSize(),
-                ){
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Settings", color = Color.White, fontSize = 35.sp, fontWeight = FontWeight.Bold)
-                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(24.dp).clickable { showSettings = false }, tint = Color.White)
-                    }
-
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Text("Option 1", color = Color.White)
-                    Text("Option 2", color = Color.White)
-                    HorizontalDivider(thickness = 1.dp, color = Color.Gray)
-                    Button(
-                        onClick = {
-                            FirebaseAuth.getInstance().signOut()
-                            val intent = Intent(context, MainActivity::class.java)
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                            context.startActivity(intent)
-                        },
-                        content = { Text("Logout", color = Color.White, fontSize = 20.sp) },
-                        colors = ButtonDefaults.buttonColors(Color.Gray),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -270,13 +218,14 @@ fun ViewPostScreenFunction(navController: NavHostController) {
                 .background(Color(26, 27, 28))
         ){
             Column {
-                Row (
-                    modifier = Modifier.fillMaxWidth()
+                Box (
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
                 ){
-                    Box(modifier = Modifier.clickable { navController.navigate(ProfileScreen) }) {
+                    Box(modifier = Modifier.align(Alignment.CenterStart).clickable { navController.navigate(ProfileScreen) }) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Back", modifier = Modifier.size(40.dp), tint = Color.White)
                     }
-                    Text("My NowPlaying.", modifier = Modifier.align(Alignment.CenterVertically).padding(start = 90.dp), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("My NowPlaying.", modifier = Modifier.align(Alignment.Center), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(currentPost?.timeStamp.toString().removeRange(10, 23), modifier = Modifier.align(Alignment.CenterHorizontally), color = Color.Gray, fontSize = 15.sp)
                 AsyncImage(

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     id("com.google.gms.google-services")
+    id("org.jetbrains.dokka") version "1.9.10"
 }
 
 android {
@@ -74,7 +75,6 @@ dependencies {
     implementation(libs.firebase.storage)
     implementation(libs.firebase.inappmessaging)
     implementation(libs.firebase.inappmessaging.display)
-
 
     implementation("io.coil-kt:coil-compose:2.6.0")
 }
