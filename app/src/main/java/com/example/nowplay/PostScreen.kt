@@ -26,26 +26,29 @@ fun PostScreenFunction(
     val scrollState = rememberScrollState()
 
     var currentSong by remember { mutableStateOf<SpotifySong?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var initialLoading by remember { mutableStateOf(false) }
 
-    // Auto refreshes song every 5 seconds
+    // initial loading and refresh
     LaunchedEffect(accessToken.value) {
-        while (true) {
-            if (accessToken.value != null) {
-                isLoading = true
-                val api = SpotifyApiManager(accessToken.value!!)
-                val song = api.getCurrentPlaying()
-                if (song != null) {
-                    currentSong = song
+        if (accessToken.value != null) {
+            val api = SpotifyApiManager(accessToken.value!!)
+            initialLoading = true
+            // First fetch
+            val first = api.getCurrentPlaying()
+            currentSong = first
+            errorMessage = if (first != null) null else "No song playing"
+            initialLoading = false
+
+
+            while (true) {
+                delay(5000)
+                val updated = api.getCurrentPlaying()
+                if (updated != null) {
+                    currentSong = updated
                     errorMessage = null
-                } else {
-                    currentSong = null
-                    errorMessage = "No song playing"
                 }
-                isLoading = false
             }
-            delay(5000)
         }
     }
 
@@ -65,55 +68,49 @@ fun PostScreenFunction(
         Spacer(modifier = Modifier.height(24.dp))
 
         if (accessToken.value == null) {
+            // Connect button
             Button(
                 onClick = { spotifyAuthManager.authorize() },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1DB954))
             ) {
                 Text("Connect to Spotify")
             }
+        } else if (initialLoading) {
+            CircularProgressIndicator(color = Color(0xFF1DB954))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Loading...", color = Color.White)
+        } else if (currentSong != null) {
+            Text(
+                text = "${currentSong!!.name} - ${currentSong!!.artist}",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AsyncImage(
+                model = currentSong!!.imageUrl,
+                contentDescription = "Album cover",
+                modifier = Modifier
+                    .size(300.dp)
+                    .clip(MaterialTheme.shapes.medium)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = currentSong!!.album,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.LightGray
+            )
         } else {
-            when {
-                isLoading -> {
-                    CircularProgressIndicator(color = Color(0xFF1DB954))
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Loading...", color = Color.White)
-                }
-                currentSong != null -> {
-                    // Artist
-                    Text(
-                        text = "${currentSong!!.name} - ${currentSong!!.artist}",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // album cover
-                    AsyncImage(
-                        model = currentSong!!.imageUrl,
-                        contentDescription = "Album cover",
-                        modifier = Modifier
-                            .size(300.dp)
-                            .clip(MaterialTheme.shapes.medium)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Album name
-                    Text(
-                        text = currentSong!!.album,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = Color.LightGray
-                    )
-                }
-                else -> {
-                    Text(
-                        text = errorMessage ?: "No song playing",
-                        fontSize = 18.sp,
-                        color = Color.White
-                    )
-                }
-            }
+            // No song or error
+            Text(
+                text = errorMessage ?: "No song playing",
+                fontSize = 18.sp,
+                color = Color.White
+            )
         }
     }
 }
+
