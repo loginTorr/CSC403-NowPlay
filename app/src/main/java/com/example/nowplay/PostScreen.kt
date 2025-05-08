@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,26 +24,29 @@ fun PostScreenFunction(
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val coroutineScope = rememberCoroutineScope()
 
     var currentSong by remember { mutableStateOf<SpotifySong?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Fetch song when token arrives
+    // Auto refreshes song every 5 seconds
     LaunchedEffect(accessToken.value) {
-        if (accessToken.value == null) return@LaunchedEffect
-        isLoading = true
-        val api = SpotifyApiManager(accessToken.value!!)
-        val song = api.getCurrentPlaying()
-        if (song != null) {
-            currentSong = song
-            errorMessage = null
-        } else {
-            currentSong = null
-            errorMessage = "No song playing"
+        while (true) {
+            if (accessToken.value != null) {
+                isLoading = true
+                val api = SpotifyApiManager(accessToken.value!!)
+                val song = api.getCurrentPlaying()
+                if (song != null) {
+                    currentSong = song
+                    errorMessage = null
+                } else {
+                    currentSong = null
+                    errorMessage = "No song playing"
+                }
+                isLoading = false
+            }
+            delay(5000)
         }
-        isLoading = false
     }
 
     Column(
@@ -53,7 +56,6 @@ fun PostScreenFunction(
             .verticalScroll(scrollState),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Screen title
         Text(
             text = "Now Playing on Spotify",
             fontSize = 24.sp,
@@ -63,7 +65,6 @@ fun PostScreenFunction(
         Spacer(modifier = Modifier.height(24.dp))
 
         if (accessToken.value == null) {
-            // Connect button
             Button(
                 onClick = { spotifyAuthManager.authorize() },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1DB954))
@@ -74,7 +75,7 @@ fun PostScreenFunction(
             when {
                 isLoading -> {
                     CircularProgressIndicator(color = Color(0xFF1DB954))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text("Loading...", color = Color.White)
                 }
                 currentSong != null -> {
@@ -87,7 +88,7 @@ fun PostScreenFunction(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Album Cover
+                    // album cover
                     AsyncImage(
                         model = currentSong!!.imageUrl,
                         contentDescription = "Album cover",
@@ -104,39 +105,14 @@ fun PostScreenFunction(
                         fontWeight = FontWeight.Normal,
                         color = Color.LightGray
                     )
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
                 else -> {
-                    // No song or error message
                     Text(
                         text = errorMessage ?: "No song playing",
                         fontSize = 18.sp,
                         color = Color.White
                     )
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
-            }
-
-            // Refresh button
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        isLoading = true
-                        val api = SpotifyApiManager(accessToken.value!!)
-                        val song = api.getCurrentPlaying()
-                        if (song != null) {
-                            currentSong = song
-                            errorMessage = null
-                        } else {
-                            currentSong = null
-                            errorMessage = "No song playing"
-                        }
-                        isLoading = false
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1DB954))
-            ) {
-                Text("Refresh Now Playing")
             }
         }
     }
