@@ -63,10 +63,12 @@ data class BottomNavigationItem(
 
 // database user class
 data class User(
-    val username: String? = null,
+    var username: String? = null,
     val phoneNumber: String? = null,
     val firstName: String? = null,
-    val birthday: String? = null
+    val birthday: String? = null,
+    var bio: String? = null,
+    var location: String? = null
 )
 
 class MainActivity : ComponentActivity() {
@@ -141,7 +143,8 @@ class MainActivity : ComponentActivity() {
                     LoginScreen::class.qualifiedName,
                     LoginSignupScreen::class.qualifiedName,
                     ViewPostScreen::class.qualifiedName,
-                    SettingsScreen::class.qualifiedName
+                    SettingsScreen::class.qualifiedName,
+                    EditProfileScreen::class.qualifiedName
                 )
 
                 val showBottomBar = currentDestination?.route !in onboardingScreens
@@ -302,13 +305,16 @@ class MainActivity : ComponentActivity() {
                                 ChatScreenFunction()
                             }
                             composable<ProfileScreen> {
-                                ProfileScreenFunction(username = usernameState.value, navController = navController)
+                                ProfileScreenFunction(navController = navController)
                             }
                             composable<ViewPostScreen> {
                                 ViewPostScreenFunction(navController = navController)
                             }
                             composable<SettingsScreen> {
-                                SettingsScreenFunction(username = usernameState.value, navController = navController)
+                                SettingsScreenFunction(navController = navController)
+                            }
+                            composable<EditProfileScreen> {
+                                EditProfileScreenFunction(navController = navController)
                             }
                         }
                     }

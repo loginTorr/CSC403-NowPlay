@@ -1,6 +1,8 @@
 package com.example.nowplay
 
 import android.annotation.SuppressLint
+import android.content.ContentValues.TAG
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -55,7 +57,7 @@ var currentPost: Post? = null
 
 @SuppressLint("MutableCollectionMutableState")
 @Composable
-fun ProfileScreenFunction(username: String, navController: NavHostController) {
+fun ProfileScreenFunction(navController: NavHostController) {
     val posts by remember { mutableStateOf(mutableListOf<Post>()) }
 
     // Set Up Database
@@ -65,9 +67,11 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
     val friendsCollection = database.collection("/Users/${user?.uid}/Friends")
     var numPosts by rememberSaveable { mutableIntStateOf(0) }
     var numFriends by rememberSaveable { mutableIntStateOf(0) }
+    var tempUser by remember { mutableStateOf(User()) }
+    var username by remember { mutableStateOf("") }
 
     // Count number of friends of user
-    LaunchedEffect(key1 = true) {
+    LaunchedEffect(Unit) {
         friendsCollection.get().addOnSuccessListener { documents ->
             for (document in documents) {
                 numFriends++
@@ -76,7 +80,7 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
     }
 
     // Count number of posts of user
-    LaunchedEffect(key1 = true) {
+    LaunchedEffect(Unit) {
         postCollection.get().addOnSuccessListener { documents ->
             for (document in documents) {
                 numPosts++
@@ -93,15 +97,30 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
         }
     }
 
+    LaunchedEffect(Unit) {
+        val userReference = database.document("/Users/${user?.uid}")
+        userReference.get().addOnSuccessListener { document ->
+            if (document != null) {
+                Log.d(TAG, "DocumentSnapshot data: ${document.data}")
+                tempUser = document.toObject(User::class.java)!!
+                username = tempUser.username.orEmpty()
+            }
+        }
+    }
+
 
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(top = 40.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.TopEnd
             ) {
                 Button(
@@ -154,7 +173,9 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
                 onClick = {  },
                 content = { Text("Share Profile", color = Color.White) },
                 colors = ButtonDefaults.buttonColors(Color.Gray),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 48.dp)
             )
             if (numPosts == 0) {
                 Column {
@@ -162,7 +183,9 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
                         "Wow, it's really quiet in here!",
                         color = Color.White, fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 64.dp).align(Alignment.CenterHorizontally)
+                        modifier = Modifier
+                            .padding(top = 64.dp)
+                            .align(Alignment.CenterHorizontally)
                     )
                     Button(
                         onClick = {
@@ -170,7 +193,9 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
                         },
                         content = { Text("Add your NowPlaying.", color = Color.Black, fontWeight = FontWeight.Bold) },
                         colors = ButtonDefaults.buttonColors(Color.White),
-                        modifier = Modifier.padding(top = 16.dp).align(Alignment.CenterHorizontally)
+                        modifier = Modifier
+                            .padding(top = 16.dp)
+                            .align(Alignment.CenterHorizontally)
                     )
                 }
             }
@@ -188,7 +213,8 @@ fun ProfileScreenFunction(username: String, navController: NavHostController) {
                         AsyncImage(
                             model = posts[index].songPicture,
                             contentDescription = "Song Picture",
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier
+                                .fillMaxSize()
                                 .size(120.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(Color.Gray)
@@ -222,7 +248,9 @@ fun ViewPostScreenFunction(navController: NavHostController) {
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ){
-                    Box(modifier = Modifier.align(Alignment.CenterStart).clickable { navController.navigate(ProfileScreen) }) {
+                    Box(modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .clickable { navController.navigate(ProfileScreen) }) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Back", modifier = Modifier.size(40.dp), tint = Color.White)
                     }
                     Text("My NowPlaying.", modifier = Modifier.align(Alignment.Center), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)

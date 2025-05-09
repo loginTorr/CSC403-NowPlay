@@ -65,6 +65,8 @@ object ProfileScreen
 object ViewPostScreen
 @Serializable
 object SettingsScreen
+@Serializable
+object EditProfileScreen
 
 @Composable
 fun LoginSignupScreenFunction(navController: NavController) {
