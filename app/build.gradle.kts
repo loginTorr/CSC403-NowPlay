@@ -77,6 +77,12 @@ dependencies {
     implementation(libs.firebase.inappmessaging)
     implementation(libs.firebase.inappmessaging.display)
 
+    //for profile images
+    implementation("com.android.volley:volley:1.2.1")
+    implementation("androidx.appcompat:appcompat:1.3.1")
+    implementation("androidx.core:core-ktx:1.6.0")
+
+
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("net.openid:appauth:0.11.1")
 

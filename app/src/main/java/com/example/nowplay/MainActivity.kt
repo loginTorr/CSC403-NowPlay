@@ -68,7 +68,8 @@ data class User(
     val firstName: String? = null,
     val birthday: String? = null,
     var bio: String? = null,
-    var location: String? = null
+    var location: String? = null,
+    val profileImageUrl: String? = null
 )
 
 class MainActivity : ComponentActivity() {

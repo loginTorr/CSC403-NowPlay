@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,6 +53,10 @@ import coil.compose.AsyncImage
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.firestore
+import androidx.activity.compose.rememberLauncherForActivityResult // pfp
+import androidx.activity.result.contract.ActivityResultContracts // pfp
+import android.net.Uri // pfp
+import androidx.compose.foundation.shape.CircleShape
 
 var currentPost: Post? = null
 
@@ -59,6 +64,7 @@ var currentPost: Post? = null
 @Composable
 fun ProfileScreenFunction(navController: NavHostController) {
     val posts by remember { mutableStateOf(mutableListOf<Post>()) }
+    val context = LocalContext.current
 
     // Set Up Database
     val database = Firebase.firestore
@@ -69,6 +75,49 @@ fun ProfileScreenFunction(navController: NavHostController) {
     var numFriends by rememberSaveable { mutableIntStateOf(0) }
     var tempUser by remember { mutableStateOf(User()) }
     var username by remember { mutableStateOf("") }
+
+    // Profile Picture Stuff
+    var profileImageUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        selectedImageUri = uri
+        uri?.let {
+            val base64Image = encodeImageToBase64(context, it)
+            uploadImageToImgur(
+                base64Image,
+                context,
+                onSuccess = { resultUrl ->
+                    profileImageUrl = resultUrl
+                    // Save it to Firestore
+                    val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@uploadImageToImgur
+                    Firebase.firestore.collection("Users").document(uid)
+                        .update("profileImageUrl", resultUrl)
+                },
+                onError = { error ->
+                    Log.e("ImgurUpload", "Error: $error")
+                }
+            )
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        uid?.let {
+            Firebase.firestore.collection("Users").document(it).get()
+                .addOnSuccessListener { doc ->
+                    val url = doc.getString("profileImageUrl")
+                    if (url != null) {
+                        profileImageUrl = url
+                    }
+                }
+        }
+
+    }
+    /// End of PFP stuff
+
 
     // Count number of friends of user
     LaunchedEffect(Unit) {
@@ -140,12 +189,35 @@ fun ProfileScreenFunction(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Icon(
-                Icons.Default.AccountCircle,
-                contentDescription = "Profile Picture",
-                modifier = Modifier.size(100.dp),
-                tint = Color.LightGray
-            )
+            // PFP implementation
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .clickable { launcher.launch("image/*") }
+                    .background(Color.Transparent),
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    profileImageUrl.isNullOrBlank() -> {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "Default Profile Picture",
+                            tint = Color.LightGray,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    else -> {
+                        AsyncImage(
+                            model = profileImageUrl,
+                            contentDescription = "Profile Picture",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            }
 
             Text(
                 username,

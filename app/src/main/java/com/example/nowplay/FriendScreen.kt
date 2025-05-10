@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.LaunchedEffect
 import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.foundation.text.BasicTextField
@@ -44,7 +45,37 @@ import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.material.icons.filled.Search
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
+import coil.compose.AsyncImage
 
+@Composable
+fun ProfileIcon(size: Dp = 32.dp, tint: Color = Color.LightGray, modifier: Modifier = Modifier) {
+    Icon(
+        imageVector = Icons.Default.AccountCircle,
+        contentDescription = "Profile Icon",
+        tint = tint,
+        modifier = modifier.size(size)
+    )
+}
+
+@Composable
+fun ProfileImage(url: String?, size: Dp = 32.dp, modifier: Modifier = Modifier) {
+    if (!url.isNullOrBlank()) {
+        AsyncImage(
+            model = url,
+            contentDescription = "Profile picture",
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(Color.Gray)
+        )
+    } else {
+        ProfileIcon(size = size, modifier = modifier)
+    }
+}
 
 @Composable
 fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
@@ -228,6 +259,8 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
             val isBlocked = blockedUserIds.contains(uid)
             val isFriend = friendUserIds.contains(uid)
             val hasIncomingRequest = incomingRequestUserIds.contains(uid)
+            val profileImageUrl = user.profileImageUrl ?: ""
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -242,14 +275,10 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AccountCircle,
-                        contentDescription = "Profile Icon",
-                        tint = Color.LightGray,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .padding(end = 8.dp)
-                    )
+
+                    // Profile image for searched users
+                    ProfileImage(url = user.profileImageUrl, modifier = Modifier.padding(end = 8.dp))
+
                     Text(
                         text = user.username ?: "Unknown user",
                         color = Color.White,
@@ -410,6 +439,7 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
             friendsList.forEach { (uid, data) ->
                 val firstName = data["firstName"] as? String ?: "unknown"
                 val username = data["username"] as? String ?: "unknown_user"
+                val profileImageUrl = data["profileImageUrl"] as? String ?: ""
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -421,15 +451,9 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                         }
                         .padding(vertical = 8.dp)
                 ) {
-                    // Icon
-                    Icon(
-                        imageVector = Icons.Default.AccountCircle,
-                        contentDescription = "Profile Icon",
-                        tint = Color.LightGray,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .padding(end = 8.dp)
-                    )
+                    // Profile picture for friended users
+                    ProfileImage(url = profileImageUrl, modifier = Modifier.padding(end = 8.dp))
+
 
                     // Name and Username
                     Column(modifier = Modifier.weight(1f)) {
@@ -477,7 +501,7 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
         )
     ) {
         val (uid, data) = selectedFriend!!
-
+        val profileImageUrl = data["profileImageUrl"] as? String ?: ""
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -506,14 +530,28 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                 Spacer(modifier = Modifier.height(40.dp))
 
                 // Profile icon
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = "Profile Icon",
-                    tint = Color.LightGray,
-                    modifier = Modifier
-                        .size(100.dp)
-                        .align(Alignment.CenterHorizontally)
-                )
+                if (profileImageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = profileImageUrl,
+                        contentDescription = "Profile Picture",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape)
+                            .background(Color.Gray)
+                            .align(Alignment.CenterHorizontally)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Profile Icon",
+                        tint = Color.LightGray,
+                        modifier = Modifier
+                            .size(100.dp)
+                            .align(Alignment.CenterHorizontally)
+                    )
+                }
+
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -612,7 +650,7 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // if you dont have any friend requests
+                // if you don't have any friend requests
                 if (friendRequests.isEmpty()) {
                     Text("No friend requests :(", color = Color.Gray)
                 } else {
@@ -620,6 +658,7 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                     friendRequests.forEach { (senderId, data) ->
                         val firstName = data["firstName"] as? String ?: "unknown"
                         val username = data["username"] as? String ?: "unknown"
+                        val profileImageUrl = data["profileImageUrl"] as? String ?: ""
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -628,14 +667,17 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                                 .padding(vertical = 8.dp)
                         ) {
                             // The users Icon
-                            Icon(
-                                imageVector = Icons.Default.AccountCircle,
-                                contentDescription = "Profile Icon",
-                                tint = Color.LightGray,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .padding(end = 8.dp)
-                            )
+                            if (profileImageUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = profileImageUrl,
+                                    contentDescription = "Profile Picture",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                ProfileIcon(modifier = Modifier.padding(end = 8.dp))
+                            }
+
 
                             // Name and Username
                             Column(modifier = Modifier.weight(1f)) {
