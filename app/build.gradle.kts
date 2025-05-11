@@ -85,5 +85,7 @@ dependencies {
 
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("net.openid:appauth:0.11.1")
+    implementation("androidx.compose.material:material-icons-extended:1.4.3")
+
 
 }
