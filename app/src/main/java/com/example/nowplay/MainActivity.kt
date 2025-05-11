@@ -299,7 +299,7 @@ class MainActivity : ComponentActivity() {
                             composable<PostScreen> {
                                 PostScreenFunction(
                                     spotifyAuthManager = spotifyAuthManager,
-                                    accessToken = accessToken
+                                    initialAccessToken = accessToken.value
                                 )
                             }
                             composable<ChatScreen> {

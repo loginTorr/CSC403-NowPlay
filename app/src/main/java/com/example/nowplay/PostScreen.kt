@@ -20,33 +20,36 @@ import kotlinx.coroutines.delay
 @Composable
 fun PostScreenFunction(
     spotifyAuthManager: SpotifyAuthManager,
-    accessToken: MutableState<String?>
+    initialAccessToken: String?
 ) {
-    val context = LocalContext.current
     val scrollState = rememberScrollState()
-
     var currentSong by remember { mutableStateOf<SpotifySong?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var initialLoading by remember { mutableStateOf(false) }
+    var accessToken by remember { mutableStateOf(initialAccessToken) }
 
-    // initial loading and refresh
-    LaunchedEffect(accessToken.value) {
-        if (accessToken.value != null) {
-            val api = SpotifyApiManager(accessToken.value!!)
+    LaunchedEffect(initialAccessToken) {
+        accessToken = spotifyAuthManager.getAccessToken()
+        if (accessToken != null) {
             initialLoading = true
-            // First fetch
-            val first = api.getCurrentPlaying()
+            val first = SpotifyApiManager(accessToken!!).getCurrentPlaying()
             currentSong = first
             errorMessage = if (first != null) null else "No song playing"
             initialLoading = false
 
-
             while (true) {
                 delay(5000)
-                val updated = api.getCurrentPlaying()
-                if (updated != null) {
-                    currentSong = updated
-                    errorMessage = null
+                val freshToken = spotifyAuthManager.getAccessToken()
+                if (freshToken != null) {
+                    accessToken = freshToken
+                    val updated = SpotifyApiManager(freshToken).getCurrentPlaying()
+                    if (updated != null) {
+                        currentSong = updated
+                        errorMessage = null
+                    }
+                } else {
+                    errorMessage = "Failed to refresh token"
+                    break
                 }
             }
         }
@@ -67,8 +70,7 @@ fun PostScreenFunction(
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        if (accessToken.value == null) {
-            // Connect button
+        if (accessToken == null) {
             Button(
                 onClick = { spotifyAuthManager.authorize() },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1DB954))
@@ -104,7 +106,6 @@ fun PostScreenFunction(
                 color = Color.LightGray
             )
         } else {
-            // No song or error
             Text(
                 text = errorMessage ?: "No song playing",
                 fontSize = 18.sp,
@@ -113,4 +114,3 @@ fun PostScreenFunction(
         }
     }
 }
-
