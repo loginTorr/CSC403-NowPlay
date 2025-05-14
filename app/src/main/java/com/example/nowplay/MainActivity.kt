@@ -1,5 +1,6 @@
 package com.example.nowplay
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -98,9 +99,17 @@ class MainActivity : ComponentActivity() {
 
             val usernameState = remember { mutableStateOf("Loading...") }
 
+            // Shared chat state
+            val chatViewModel: ChatViewModel = viewModel()
+            val chatHistory by chatViewModel.chatList.collectAsState()
+            var activeChat by remember { mutableStateOf<ChatPreview?>(null) }
+
+
             LaunchedEffect(Unit) {
                 val auth = FirebaseAuth.getInstance()
                 val db = FirebaseFirestore.getInstance()
+
+                chatViewModel.startListeningForChats()
 
                 val listener = FirebaseAuth.AuthStateListener { _ ->
                     if (user != null) {
@@ -126,10 +135,6 @@ class MainActivity : ComponentActivity() {
 
                 auth.addAuthStateListener(listener)
             }
-
-
-
-
 
             NowPlayTheme {
                 val navController = rememberNavController()
@@ -294,7 +299,13 @@ class MainActivity : ComponentActivity() {
                                 HomeScreenFunction()
                             }
                             composable<FriendsScreen> {
-                                FriendsScreenFunction(viewModel())
+                                FriendsScreenFunction(viewModel(), onStartChat = { chat ->
+                                    chatViewModel.createChatEntriesForBothUsers(chat)
+                                    activeChat = chat
+                                    selectedItemIndex = 3
+                                    navController.navigate("chat")
+                                }
+                                )
                             }
                             composable<PostScreen> { backStackEntry ->
                                 val navController = navController
@@ -305,7 +316,17 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable<ChatScreen> {
-                                ChatScreenFunction()
+                                if (activeChat != null) {
+                                    ChatDetailScreen(
+                                        friend = activeChat!!,
+                                        onBack = { activeChat = null }
+                                    )
+                                } else {
+                                    ChatListScreen(
+                                        chats = chatHistory,
+                                        onOpenChat = { chat -> activeChat = chat }
+                                    )
+                                }
                             }
                             composable<ProfileScreen> {
                                 ProfileScreenFunction(navController = navController)
@@ -335,6 +356,7 @@ class MainActivity : ComponentActivity() {
             }
     }
 
+    @SuppressLint("UseKtx")
     private fun handleSpotifyRedirect(intent: Intent) {
         Log.d("SPOTIFY", "Redirect Intent received: ${intent.data}")
         spotifyAuthManager.handleRedirectIntent(intent) { success, token ->

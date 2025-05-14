@@ -78,7 +78,7 @@ fun ProfileImage(url: String?, size: Dp = 32.dp, modifier: Modifier = Modifier) 
 }
 
 @Composable
-fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
+fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat: (ChatPreview) -> Unit) {
     // remembers state of search bar and collects all users of the database for name searching
     var searchText by remember { mutableStateOf("") }
     val allUsers by viewModel.allUsers.collectAsState()
@@ -293,7 +293,15 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                         when {
                             isFriend -> {
                                 Log.d("FRIENDS", "Open chat with ${user.username}")
-                                // TODO: Navigate to chat
+                                onStartChat(
+                                    ChatPreview(
+                                        friendId = uid,
+                                        friendName = user.username ?: "Unknown",
+                                        profileImageUrl = user.profileImageUrl ?: "",
+                                        lastMessage = "",
+                                        timestamp = System.currentTimeMillis()
+                                    )
+                                )
                             }
                             hasIncomingRequest -> {
                                 // accept logic to prevent duplicate requests
@@ -330,8 +338,8 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                                     .addOnSuccessListener { currentUserDoc ->
                                         val senderUsername = currentUserDoc.getString("username")
                                             ?: return@addOnSuccessListener
-                                        val senderFirstName =
-                                            currentUserDoc.getString("firstName") ?: ""
+                                        val senderFirstName = currentUserDoc.getString("firstName") ?: ""
+                                        val senderProfileImageUrl = currentUserDoc.getString("profileImageUrl") ?: ""
 
                                         db.collection("Users").document(uid)
                                             .collection("FriendRequests")
@@ -339,7 +347,8 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                                             .set(
                                                 mapOf(
                                                     "firstName" to senderFirstName,
-                                                    "username" to senderUsername
+                                                    "username" to senderUsername,
+                                                    "profileImageUrl" to senderProfileImageUrl
                                                 )
                                             )
                                             .addOnSuccessListener {
@@ -473,7 +482,15 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
 
                     // Chat Button
                     Button(
-                        onClick = { /* Handle chat button click */ },
+                        onClick = { onStartChat(
+                            ChatPreview(
+                                friendId = uid,
+                                friendName = data["username"] as? String ?: "Unknown",
+                                profileImageUrl = data["profileImageUrl"] as? String ?: "",
+                                lastMessage = "",
+                                timestamp = System.currentTimeMillis()
+                            )
+                        )},
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
                         shape = RoundedCornerShape(20.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
@@ -573,7 +590,16 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
-                    onClick = { },
+                    onClick = { onStartChat(
+                            ChatPreview(
+                            friendId = uid,
+                            friendName = data["username"] as? String ?: "Unknown",
+                            profileImageUrl = data["profileImageUrl"] as? String ?: "",
+                            lastMessage = "",
+                            timestamp = System.currentTimeMillis()
+                        )
+                    )
+                        showFriendSheet = false },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
@@ -593,6 +619,19 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                             .delete()
                             .addOnSuccessListener {
                                 Log.d("FRIENDS", "Removed $uid from friends")
+
+                                // now remove YOU from the friend's friends list
+                                db.collection("Users").document(uid)
+                                    .collection("Friends")
+                                    .document(currentUserId)
+                                    .delete()
+                                    .addOnSuccessListener {
+                                        Log.d("FRIENDS", "Removed you from $uid's friends list")
+                                    }
+                                    .addOnFailureListener {
+                                        Log.e("FRIENDS", "Failed to remove you from $uid's friends list", it)
+                                    }
+
                                 showFriendSheet = false
 
                                 // now refresh the friend list
@@ -668,12 +707,8 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                         ) {
                             // The users Icon
                             if (profileImageUrl.isNotBlank()) {
-                                AsyncImage(
-                                    model = profileImageUrl,
-                                    contentDescription = "Profile Picture",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                                ProfileImage(url = profileImageUrl, modifier = Modifier.padding(end = 8.dp))
+
                             } else {
                                 ProfileIcon(modifier = Modifier.padding(end = 8.dp))
                             }
@@ -699,40 +734,66 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel()) {
                                 onClick = {
                                     val db = FirebaseFirestore.getInstance()
 
-                                    // add friend to the current users friends list
+                                    // Add sender to the current user's friends list
                                     db.collection("Users").document(currentUserId)
                                         .collection("Friends")
                                         .document(senderId)
                                         .set(mapOf(
                                             "firstName" to data["firstName"],
-                                            "username" to data["username"]
+                                            "username" to data["username"],
+                                            "profileImageUrl" to data["profileImageUrl"]
                                         ))
                                         .addOnSuccessListener {
-                                            // remove the request from your friend requests
-                                            db.collection("Users").document(currentUserId)
-                                                .collection("FriendRequests")
-                                                .document(senderId)
-                                                .delete()
-                                                .addOnSuccessListener {
-                                                    Log.d("FRIEND_REQUEST", "Removed $senderId from friend requests")
+                                            // Add the current user to the sender's friends list
+                                            db.collection("Users").document(currentUserId).get()
+                                                .addOnSuccessListener { currentUserDoc ->
+                                                    val myUsername = currentUserDoc.getString("username") ?: ""
+                                                    val myFirstName = currentUserDoc.getString("firstName") ?: ""
+                                                    val myProfileImageUrl = currentUserDoc.getString("profileImageUrl") ?: ""
 
-                                                    // now refresh after deletion
-                                                    db.collection("Users").document(currentUserId)
-                                                        .collection("FriendRequests")
-                                                        .get()
-                                                        .addOnSuccessListener { result ->
-                                                            friendRequests = result.documents.mapNotNull { doc ->
-                                                                val requestData = doc.data ?: return@mapNotNull null
-                                                                doc.id to requestData
-                                                            }
+                                                    db.collection("Users").document(senderId)
+                                                        .collection("Friends")
+                                                        .document(currentUserId)
+                                                        .set(mapOf(
+                                                            "firstName" to myFirstName,
+                                                            "username" to myUsername,
+                                                            "profileImageUrl" to myProfileImageUrl
+                                                        ))
+                                                        .addOnSuccessListener {
+                                                            // Now remove the request
+                                                            db.collection("Users").document(currentUserId)
+                                                                .collection("FriendRequests")
+                                                                .document(senderId)
+                                                                .delete()
+                                                                .addOnSuccessListener {
+                                                                    Log.d("FRIEND_REQUEST", "Removed $senderId from friend requests")
+
+                                                                    friendRequests = friendRequests.filterNot { it.first == senderId }
+
+                                                                    db.collection("Users").document(currentUserId)
+                                                                        .collection("FriendRequests")
+                                                                        .get()
+                                                                        .addOnSuccessListener { result ->
+                                                                            friendRequests = result.documents.mapNotNull { doc ->
+                                                                                val requestData = doc.data ?: return@mapNotNull null
+                                                                                doc.id to requestData
+                                                                            }
+                                                                        }
+                                                                }
+                                                                .addOnFailureListener {
+                                                                    Log.e("FRIEND_REQUEST", "Failed to remove request", it)
+                                                                }
+                                                        }
+                                                        .addOnFailureListener {
+                                                            Log.e("FRIEND_REQUEST", "Failed to update sender's friends list", it)
                                                         }
                                                 }
                                                 .addOnFailureListener {
-                                                    Log.e("FRIEND_REQUEST", "Failed to remove request", it)
+                                                    Log.e("FRIEND_REQUEST", "Failed to fetch current user info", it)
                                                 }
                                         }
                                         .addOnFailureListener {
-                                            Log.e("FRIEND_REQUEST", "Failed to add friend", it)
+                                            Log.e("FRIEND_REQUEST", "Failed to add friend to current user's list", it)
                                         }
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
