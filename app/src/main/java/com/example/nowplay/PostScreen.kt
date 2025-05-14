@@ -1,9 +1,10 @@
 package com.example.nowplay
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
@@ -12,19 +13,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import java.util.Date
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostScreenFunction(
     spotifyAuthManager: SpotifyAuthManager,
-    initialAccessToken: String?
+    initialAccessToken: String?,
+    navController: NavController
 ) {
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
     var currentSong by remember { mutableStateOf<SpotifySong?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var initialLoading by remember { mutableStateOf(false) }
@@ -61,7 +70,38 @@ fun PostScreenFunction(
         containerColor = Color(26, 27, 28),
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* dummy */ },
+                onClick = {
+                    val user = FirebaseAuth.getInstance().currentUser
+                    val song = currentSong
+                    if (user != null && song != null) {
+                        val db = Firebase.firestore
+                        val post = Post(
+                            userId     = user.uid,
+                            songName   = song.name,
+                            artistName = song.artist,
+                            albumName  = song.album,
+                            songPicture= song.imageUrl,
+                            timeStamp  = Date()
+                        )
+
+                        db.collection("Users")
+                            .document(user.uid)
+                            .collection("Posts")
+                            .add(post)
+                            .addOnSuccessListener {
+
+                                db.collection("Posts").add(post)
+                                Toast.makeText(context, "Posted!", Toast.LENGTH_SHORT).show()
+
+                                navController.navigate(HomeScreen)
+                            }
+                            .addOnFailureListener {
+                                Toast.makeText(context, "Failed to post", Toast.LENGTH_SHORT).show()
+                            }
+                    } else {
+                        Toast.makeText(context, "Nothing to post", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 modifier = Modifier.size(100.dp),
                 shape = CircleShape,
                 containerColor = Color.White,

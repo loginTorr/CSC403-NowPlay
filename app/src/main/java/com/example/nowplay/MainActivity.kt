@@ -296,10 +296,12 @@ class MainActivity : ComponentActivity() {
                             composable<FriendsScreen> {
                                 FriendsScreenFunction(viewModel())
                             }
-                            composable<PostScreen> {
+                            composable<PostScreen> { backStackEntry ->
+                                val navController = navController
                                 PostScreenFunction(
                                     spotifyAuthManager = spotifyAuthManager,
-                                    initialAccessToken = accessToken.value
+                                    initialAccessToken = accessToken.value,
+                                    navController = navController
                                 )
                             }
                             composable<ChatScreen> {

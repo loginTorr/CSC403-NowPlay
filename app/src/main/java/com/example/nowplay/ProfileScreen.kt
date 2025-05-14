@@ -2,7 +2,10 @@ package com.example.nowplay
 
 import android.annotation.SuppressLint
 import android.content.ContentValues.TAG
+import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult // pfp
+import androidx.activity.result.contract.ActivityResultContracts     // pfp
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -22,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -35,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf          // ← added
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -52,37 +57,34 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.firestore
-import androidx.activity.compose.rememberLauncherForActivityResult // pfp
-import androidx.activity.result.contract.ActivityResultContracts // pfp
-import android.net.Uri // pfp
-import androidx.compose.foundation.shape.CircleShape
+import com.google.firebase.firestore.firestore       // KTX for Firebase.firestore
 
+// global holder for the tapped‐post
 var currentPost: Post? = null
 
 @SuppressLint("MutableCollectionMutableState")
 @Composable
 fun ProfileScreenFunction(navController: NavHostController) {
-    val posts by remember { mutableStateOf(mutableListOf<Post>()) }
+
+    val posts = remember { mutableStateListOf<Post>() }
     val context = LocalContext.current
 
-    // Set Up Database
     val database = Firebase.firestore
-    val user = FirebaseAuth.getInstance().currentUser
-    val postCollection = database.collection("/Users/${user?.uid}/Posts")
+    val user     = FirebaseAuth.getInstance().currentUser
+    val postCollection    = database.collection("/Users/${user?.uid}/Posts")
     val friendsCollection = database.collection("/Users/${user?.uid}/Friends")
-    var numPosts by rememberSaveable { mutableIntStateOf(0) }
-    var numFriends by rememberSaveable { mutableIntStateOf(0) }
-    var tempUser by remember { mutableStateOf(User()) }
-    var username by remember { mutableStateOf("") }
 
-    // Profile Picture Stuff
+    var numPosts   by rememberSaveable { mutableIntStateOf(0) }
+    var numFriends by rememberSaveable { mutableIntStateOf(0) }
+    var tempUser   by remember { mutableStateOf(User()) }
+    var username   by remember { mutableStateOf("") }
+
+
     var profileImageUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
-    ) { uri ->
+    ) { uri: Uri? ->
         selectedImageUri = uri
         uri?.let {
             val base64Image = encodeImageToBase64(context, it)
@@ -91,73 +93,57 @@ fun ProfileScreenFunction(navController: NavHostController) {
                 context,
                 onSuccess = { resultUrl ->
                     profileImageUrl = resultUrl
-                    // Save it to Firestore
-                    val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@uploadImageToImgur
-                    Firebase.firestore.collection("Users").document(uid)
-                        .update("profileImageUrl", resultUrl)
+                    user?.uid?.let { uid ->
+                        database.collection("Users").document(uid)
+                            .update("profileImageUrl", resultUrl)
+                    }
                 },
-                onError = { error ->
-                    Log.e("ImgurUpload", "Error: $error")
-                }
+                onError = { err -> Log.e("ImgurUpload", "Error: $err") }
             )
         }
     }
 
     LaunchedEffect(Unit) {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-        uid?.let {
-            Firebase.firestore.collection("Users").document(it).get()
+        user?.uid?.let { uid ->
+            database.collection("Users").document(uid).get()
                 .addOnSuccessListener { doc ->
-                    val url = doc.getString("profileImageUrl")
-                    if (url != null) {
-                        profileImageUrl = url
+                    doc.getString("profileImageUrl")?.let { profileImageUrl = it }
+                }
+        }
+    }
+
+
+    LaunchedEffect(Unit) {
+        friendsCollection.get().addOnSuccessListener { docs ->
+            numFriends = docs.size()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        user?.uid?.let { uid ->
+            database.collection("Users").document(uid).get()
+                .addOnSuccessListener { doc ->
+                    doc.toObject(User::class.java)?.let { u ->
+                        tempUser = u
+                        username = u.username.orEmpty()
                     }
                 }
         }
-
-    }
-    /// End of PFP stuff
-
-
-    // Count number of friends of user
-    LaunchedEffect(Unit) {
-        friendsCollection.get().addOnSuccessListener { documents ->
-            for (document in documents) {
-                numFriends++
-            }
-        }
     }
 
-    // Count number of posts of user
+
     LaunchedEffect(Unit) {
         postCollection.get().addOnSuccessListener { documents ->
-            for (document in documents) {
-                numPosts++
-                val post = Post(
-                    userId = "${user?.uid}",
-                    artistName = "artist",
-                    albumName = "album",
-                    songName = "song",
-                    songPicture = "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"
-                )
-                posts.add(post)
+            posts.clear()
+            for (doc in documents) {
+                doc.toObject(Post::class.java)?.let { p ->
+                    posts.add(p)
+                }
             }
             posts.sortByDescending { it.timeStamp }
+            numPosts = posts.size
         }
     }
-
-    LaunchedEffect(Unit) {
-        val userReference = database.document("/Users/${user?.uid}")
-        userReference.get().addOnSuccessListener { document ->
-            if (document != null) {
-                Log.d(TAG, "DocumentSnapshot data: ${document.data}")
-                tempUser = document.toObject(User::class.java)!!
-                username = tempUser.username.orEmpty()
-            }
-        }
-    }
-
-
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -166,6 +152,7 @@ fun ProfileScreenFunction(navController: NavHostController) {
                 .padding(top = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Settings button
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -178,18 +165,17 @@ fun ProfileScreenFunction(navController: NavHostController) {
                     contentPadding = PaddingValues(0.dp),
                     modifier = Modifier.size(20.dp)
                 ) {
-                    Icon (
-                        imageVector = Icons.Default.Settings,
+                    Icon(
+                        imageVector   = Icons.Default.Settings,
                         contentDescription = "Settings",
                         tint = Color.White
                     )
                 }
-
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // PFP implementation
+            // Profile picture box
             Box(
                 modifier = Modifier
                     .size(100.dp)
@@ -198,92 +184,101 @@ fun ProfileScreenFunction(navController: NavHostController) {
                     .background(Color.Transparent),
                 contentAlignment = Alignment.Center
             ) {
-                when {
-                    profileImageUrl.isNullOrBlank() -> {
-                        Icon(
-                            imageVector = Icons.Default.AccountCircle,
-                            contentDescription = "Default Profile Picture",
-                            tint = Color.LightGray,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-
-                    else -> {
-                        AsyncImage(
-                            model = profileImageUrl,
-                            contentDescription = "Profile Picture",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                if (profileImageUrl.isNullOrBlank()) {
+                    Icon(
+                        imageVector   = Icons.Default.AccountCircle,
+                        contentDescription = "Default Profile Picture",
+                        tint = Color.LightGray,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    AsyncImage(
+                        model = profileImageUrl,
+                        contentDescription = "Profile Picture",
+                        contentScale = ContentScale.Crop,
+                        modifier     = Modifier.fillMaxSize()
+                    )
                 }
             }
 
+            // Username
             Text(
-                username,
+                text = username,
                 color = Color.White,
                 modifier = Modifier.padding(top = 8.dp),
-                fontSize = 25.sp,
+                fontSize  = 25.sp,
                 fontWeight = FontWeight.Bold
             )
 
+            // Counts row
             Row(
                 modifier = Modifier.padding(top = 20.dp, bottom = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(80.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(numPosts.toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(numPosts.toString(),
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold)
                     Text("NowPlays", color = Color.Gray)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(numFriends.toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(numFriends.toString(),
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold)
                     Text("Friends", color = Color.Gray)
                 }
             }
 
+            // Share Profile
             Button(
-                onClick = {  },
+                onClick = { /*…*/ },
                 content = { Text("Share Profile", color = Color.White) },
-                colors = ButtonDefaults.buttonColors(Color.Gray),
+                colors  = ButtonDefaults.buttonColors(Color.Gray),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 48.dp)
             )
+
+            // Posts grid or “no posts” state
             if (numPosts == 0) {
                 Column {
                     Text(
                         "Wow, it's really quiet in here!",
-                        color = Color.White, fontSize = 18.sp,
+                        color = Color.White,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
                             .padding(top = 64.dp)
                             .align(Alignment.CenterHorizontally)
                     )
                     Button(
-                        onClick = {
-                            navController.navigate(PostScreen)
+                        onClick = { navController.navigate(PostScreen) },
+                        content = {
+                            Text("Add your NowPlaying.",
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold)
                         },
-                        content = { Text("Add your NowPlaying.", color = Color.Black, fontWeight = FontWeight.Bold) },
                         colors = ButtonDefaults.buttonColors(Color.White),
                         modifier = Modifier
                             .padding(top = 16.dp)
                             .align(Alignment.CenterHorizontally)
                     )
                 }
-            }
-            else if (numPosts > 0) {
+            } else {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     modifier = Modifier
                         .fillMaxHeight()
                         .padding(horizontal = 16.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding        = PaddingValues(vertical = 8.dp),
+                    verticalArrangement   = Arrangement.spacedBy(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(posts.size) { index ->
                         AsyncImage(
-                            model = posts[index].songPicture,
+                            model           = posts[index].songPicture,
                             contentDescription = "Song Picture",
                             modifier = Modifier
                                 .fillMaxSize()
@@ -307,27 +302,49 @@ fun ProfileScreenFunction(navController: NavHostController) {
 fun ViewPostScreenFunction(navController: NavHostController) {
     AnimatedVisibility(
         visible = true,
-        enter = slideInHorizontally { it },
-        exit = slideOutHorizontally { it },
+        enter   = slideInHorizontally { it },
+        exit    = slideOutHorizontally { it }
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(26, 27, 28))
-        ){
+        ) {
             Column {
-                Box (
+                Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
-                ){
-                    Box(modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .clickable { navController.navigate(ProfileScreen) }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Back", modifier = Modifier.size(40.dp), tint = Color.White)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .clickable { navController.navigate(ProfileScreen) }
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Back",
+                            modifier = Modifier.size(40.dp),
+                            tint = Color.White
+                        )
                     }
-                    Text("My NowPlaying.", modifier = Modifier.align(Alignment.Center), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "My NowPlaying.",
+                        modifier = Modifier.align(Alignment.Center),
+                        color    = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                Text(currentPost?.timeStamp.toString().removeRange(10, 23), modifier = Modifier.align(Alignment.CenterHorizontally), color = Color.Gray, fontSize = 15.sp)
+
+                Text(
+                    text = currentPost?.timeStamp
+                        .toString()
+                        .removeRange(10, 23),
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    color    = Color.Gray,
+                    fontSize = 15.sp
+                )
+
                 AsyncImage(
                     model = currentPost?.songPicture,
                     contentDescription = "Song Picture",
@@ -337,8 +354,23 @@ fun ViewPostScreenFunction(navController: NavHostController) {
                         .align(Alignment.CenterHorizontally),
                     contentScale = ContentScale.Crop,
                 )
-                Text("${currentPost?.songName}", modifier = Modifier.padding(start = 16.dp, top = 16.dp), color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
-                Text("${currentPost?.artistName}", modifier = Modifier.padding(start = 16.dp, top = 5.dp), color = Color.Gray, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+
+                Text(
+                    text = "${currentPost?.songName}",
+                    modifier = Modifier
+                        .padding(start = 16.dp, top = 16.dp),
+                    color     = Color.White,
+                    fontSize  = 40.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${currentPost?.artistName}",
+                    modifier = Modifier
+                        .padding(start = 16.dp, top = 5.dp),
+                    color    = Color.Gray,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
