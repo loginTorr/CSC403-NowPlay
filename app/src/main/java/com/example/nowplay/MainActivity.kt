@@ -49,8 +49,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import android.content.Intent
-import android.net.Uri
-import android.widget.Toast
 
 data class BottomNavigationItem(
     val screen: Any,
@@ -303,7 +301,7 @@ class MainActivity : ComponentActivity() {
                                     chatViewModel.createChatEntriesForBothUsers(chat)
                                     activeChat = chat
                                     selectedItemIndex = 3
-                                    navController.navigate("chat")
+                                    navController.navigate(ChatScreen)
                                 }
                                 )
                             }

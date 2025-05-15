@@ -37,14 +37,6 @@ import coil.compose.AsyncImage
 import java.util.Date
 
 
-data class Post(
-    val userId: String,
-    val songName: String,
-    val artistName: String,
-    val albumName: String,
-    val songPicture: String,
-    val timeStamp: Date = Date()
-)
 
 fun getFriendsPosts(): List<Post> {
     return listOf(

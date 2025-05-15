@@ -1,5 +1,6 @@
 package com.example.nowplay
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
@@ -25,16 +26,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import coil.compose.AsyncImage
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import com.google.firebase.firestore.FieldValue
 
 
 data class Message(
@@ -48,30 +46,52 @@ data class ChatPreview (
     val friendName: String,
     val profileImageUrl: String = "",
     val lastMessage: String = "",
-    val timestamp: Long = 0L
+    val timestamp: Long = 0L,
+    val chatId: String = ""
 )
 
 @Composable
-fun ChatListScreen (
+fun ChatListScreen(
     chats: List<ChatPreview>,
     onOpenChat: (ChatPreview) -> Unit
 ) {
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .background(Color(26, 27, 28))
-        .padding(16.dp)) {
-
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(26, 27, 28))
+            .padding(16.dp)
+    ) {
         Text("Messages", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn{
+        LazyColumn {
             items(chats) { chat ->
                 ChatRow(chat = chat, onClick = { onOpenChat(chat) })
             }
         }
     }
 }
+
+@Composable
+fun LoadChatsForCurrentUser(onChatsLoaded: (List<Chat>) -> Unit) {
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+    FirebaseFirestore.getInstance()
+        .collection("users")
+        .document(currentUserId)
+        .collection("chats")
+        .addSnapshotListener { snapshot, _ ->
+            if (snapshot != null && !snapshot.isEmpty) {
+                val chats = snapshot.documents.mapNotNull { doc ->
+                    val otherUserId = doc.getString("otherUserId") ?: return@mapNotNull null
+                    val chatId = doc.getString("chatId") ?: return@mapNotNull null
+                    Chat(friendId = otherUserId, friendName = "", chatId = chatId) // Add logic to get friend name if needed
+                }
+                onChatsLoaded(chats)
+            }
+        }
+}
+
 
 @Composable
 fun ChatRow(chat: ChatPreview, onClick: () -> Unit) {
@@ -203,35 +223,41 @@ class ChatViewModel : ViewModel() {
     fun createChatEntriesForBothUsers(chat: ChatPreview) {
         val db = FirebaseFirestore.getInstance()
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val currentUserRef = db.collection("Users").document(currentUserId)
-        val friendRef = db.collection("Users").document(chat.friendId)
+        val otherUserId = chat.friendId
+        val chatId = chat.chatId // ✅ Right here — this works inside the function
 
         val currentUserChat = mapOf(
-            "friendId" to chat.friendId,
+            "chatId" to chatId,
+            "friendId" to otherUserId,
             "friendName" to chat.friendName,
             "profileImageUrl" to chat.profileImageUrl,
             "lastMessage" to "",
-            "timestamp" to System.currentTimeMillis()
+            "timestamp" to FieldValue.serverTimestamp()
         )
+
+        val currentUserRef = db.collection("Users").document(currentUserId)
+        val friendRef = db.collection("Users").document(otherUserId)
 
         currentUserRef.get().addOnSuccessListener { currentUserDoc ->
             val myName = currentUserDoc.getString("username") ?: "Unknown"
             val myImage = currentUserDoc.getString("profileImageUrl") ?: ""
 
             val friendChat = mapOf(
+                "chatId" to chatId,
                 "friendId" to currentUserId,
                 "friendName" to myName,
                 "profileImageUrl" to myImage,
                 "lastMessage" to "",
-                "timestamp" to System.currentTimeMillis()
+                "timestamp" to FieldValue.serverTimestamp()
             )
 
-            currentUserRef.collection("Chats").document(chat.friendId).set(currentUserChat)
-            friendRef.collection("Chats").document(currentUserId).get().addOnSuccessListener { doc ->
-                if (!doc.exists()) {
-                    friendRef.collection("Chats").document(currentUserId).set(friendChat)
+            currentUserRef.collection("Chats").document(otherUserId).set(currentUserChat)
+            friendRef.collection("Chats").document(currentUserId).set(friendChat)
+                .addOnFailureListener{
+                    Log.e("FIRESTORE", "Error creating chat entries", it)
                 }
-            }
         }
     }
+
+
 }

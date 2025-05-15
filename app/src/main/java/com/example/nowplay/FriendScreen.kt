@@ -259,7 +259,6 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat
             val isBlocked = blockedUserIds.contains(uid)
             val isFriend = friendUserIds.contains(uid)
             val hasIncomingRequest = incomingRequestUserIds.contains(uid)
-            val profileImageUrl = user.profileImageUrl ?: ""
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -482,15 +481,18 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat
 
                     // Chat Button
                     Button(
-                        onClick = { onStartChat(
-                            ChatPreview(
-                                friendId = uid,
-                                friendName = data["username"] as? String ?: "Unknown",
-                                profileImageUrl = data["profileImageUrl"] as? String ?: "",
-                                lastMessage = "",
-                                timestamp = System.currentTimeMillis()
-                            )
-                        )},
+                        onClick = {
+                            val chatId = FirebaseFirestore.getInstance().collection("chats").document().id
+                            onStartChat(
+                                ChatPreview(
+                                    friendId = uid,
+                                    friendName = data["username"] as? String ?: "Unknown",
+                                    profileImageUrl = data["profileImageUrl"] as? String ?: "",
+                                    lastMessage = "",
+                                    timestamp = System.currentTimeMillis(),
+                                    chatId = chatId
+                                )
+                            )},
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
                         shape = RoundedCornerShape(20.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
@@ -590,15 +592,19 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
-                    onClick = { onStartChat(
+                    onClick = {
+                        val chatId = FirebaseFirestore.getInstance().collection("chats").document().id
+                        onStartChat(
                             ChatPreview(
-                            friendId = uid,
-                            friendName = data["username"] as? String ?: "Unknown",
-                            profileImageUrl = data["profileImageUrl"] as? String ?: "",
-                            lastMessage = "",
-                            timestamp = System.currentTimeMillis()
+                                friendId = uid,
+                                friendName = data["username"] as? String ?: "Unknown",
+                                profileImageUrl = data["profileImageUrl"] as? String ?: "",
+                                lastMessage = "",
+                                timestamp = System.currentTimeMillis(),
+                                chatId = chatId
+                            )
                         )
-                    )
+
                         showFriendSheet = false },
                     modifier = Modifier
                         .fillMaxWidth()
