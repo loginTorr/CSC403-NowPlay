@@ -1,41 +1,57 @@
 package com.example.nowplay
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.*
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.tasks.await
 import java.util.Date
-
 
 
 fun getFriendsPosts(): List<Post> {
@@ -48,18 +64,70 @@ fun getFriendsPosts(): List<Post> {
         Post("6", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         Post("7", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
         Post("8", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        )
+    )
 }
 
 
-fun getUserPost(): List<Post> {
-    return listOf(
-        Post("1", "Shiver","Coldplay", "Parachutes", "https://i.scdn.co/image/ab67616d0000b2739164bafe9aaa168d93f4816a"),
-        )
+suspend fun getUserPost(): Post? {
+    val user = FirebaseAuth.getInstance().currentUser
+    if (user != null) {
+        val db = Firebase.firestore
+        val snapshot = db.collection("CurrentPost").document("current").get().await()
+        return if (snapshot.exists()) snapshot.toObject(Post::class.java) else null
+    }
+    return null
+}
+
+
+
+
+/*
+fun grabUserPostValues(userId: String, songName: String, artistName: String, albumName: String, songPicture: String, timeStamp: Date? = Date()): MutableState<Post> {
+    var UserPost by remember { mutableStateOf(Post("","","","","",null))}
+    UserPost = Post(userId, songName, artistName, albumName, songPicture, timeStamp)
+    return(UserPost)
+}
+*/
+
+fun addUserPostToDatabase(userId: String, songName: String, artistName: String, albumName: String, image: String, timeStamp: Date? = Date()) {
+    println("songName: $songName " + "artistName: $artistName " + "albumName: $albumName" + "image: $image" )
 }
 
 @Composable
 fun HomeScreenFunction() {
+    var userPost by remember { mutableStateOf<List<Post>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    val samplePosts = remember { getFriendsPosts() } // Only call once
+
+    LaunchedEffect(Unit) {
+        isLoading = true
+        try {
+            val user = FirebaseAuth.getInstance().currentUser
+            if (user != null) {
+                val db = Firebase.firestore
+
+                val document = db.collection("Users")
+                    .document(user.uid)
+                    .collection("CurrentPost")
+                    .document("current")
+                    .get()
+                    .await()
+
+                if (document.exists() && document.toObject(Post::class.java) != null) {
+                    // Add post to list or use as single item
+                    userPost = listOf(document.toObject(Post::class.java)!!)
+                } else {
+                    // Handle case when no document exists
+                    Log.d("POST FINDER", "No current post found")
+                }
+            }
+        } catch (e: Exception) {
+            Log.d("COULDN'T FIND POST", "Error fetching current post: ${e.message}")
+        } finally {
+            isLoading = false
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -76,7 +144,8 @@ fun HomeScreenFunction() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
-        Text(text = "NowPlaying.",
+        Text(
+            text = "NowPlaying.",
             fontSize = 22.sp,
             color = Color.White,
             fontWeight = FontWeight.Bold,
@@ -84,10 +153,18 @@ fun HomeScreenFunction() {
     }
     Spacer(modifier = Modifier.height(20.dp))
 
-    val userPosts = getUserPost()
-    val samplePosts = getFriendsPosts()
-
-    DisplayHomePageFeed(userPosts, samplePosts)
+    if (isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                color = Color.White
+            )
+        }
+    } else {
+        DisplayHomePageFeed(userPost, samplePosts)
+    }
 }
 
 
@@ -330,7 +407,7 @@ fun PostFriendItems(post: Post) {
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .offset(y = 150.dp), // Align with main content
-                verticalArrangement = Arrangement.spacedBy(4.dp) // Reduce spacing here
+            verticalArrangement = Arrangement.spacedBy(4.dp) // Reduce spacing here
 
         ) {
             IconButton (
@@ -351,7 +428,7 @@ fun PostFriendItems(post: Post) {
             IconButton (
                 onClick = {/* TODO: Implement button functionality */ },
 
-            )
+                )
             {
                 Icon(
                     Icons.Filled.AddCircle,
@@ -366,7 +443,7 @@ fun PostFriendItems(post: Post) {
             IconButton (
                 onClick = {/* TODO: Implement button functionality */ },
 
-            )
+                )
             {
                 Icon(
                     Icons.Filled.Face,

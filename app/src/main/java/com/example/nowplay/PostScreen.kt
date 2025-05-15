@@ -88,11 +88,20 @@ fun PostScreenFunction(
                             .document(user.uid)
                             .collection("Posts")
                             .add(post)
+
+                        // Write to top-level "Posts"
+                        db.collection("Posts").add(post)
+
+                        // Write to "Users/{uid}/CurrentPost" - let's make this a single doc (overwriting)
+                        db.collection("Users")
+                            .document(user.uid)
+                            .collection("CurrentPost")
+                            .document("current") // Use a fixed doc ID so only one 'current' post per user
+                            .set(post)
                             .addOnSuccessListener {
-
-                                db.collection("Posts").add(post)
+                                // Also update top-level "CurrentPost"
+                                db.collection("CurrentPost").document(user.uid).set(post)
                                 Toast.makeText(context, "Posted!", Toast.LENGTH_SHORT).show()
-
                                 navController.navigate(HomeScreen)
                             }
                             .addOnFailureListener {
