@@ -38,6 +38,12 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 import kotlinx.serialization.Serializable
 import java.util.concurrent.TimeUnit
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.GoogleAuthProvider
 
 @Serializable
 object LoginSignupScreen
@@ -70,6 +76,56 @@ object EditProfileScreen
 
 @Composable
 fun LoginSignupScreenFunction(navController: NavController) {
+    val context = LocalContext.current as Activity
+
+    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        .requestIdToken("41502535889-vvqcfa3psvlk068pqllu0mtd395rkh64.apps.googleusercontent.com")
+        .requestEmail()
+        .build()
+    val googleClient = remember { GoogleSignIn.getClient(context, gso) }
+
+    val googleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val data = result.data
+        try {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+            val account = task.getResult(ApiException::class.java)!!
+            val credential = GoogleAuthProvider.getCredential(account.idToken, null)
+            FirebaseAuth.getInstance()
+                .signInWithCredential(credential)
+                .addOnSuccessListener { authResult ->
+                    val firebaseUser = authResult.user ?: return@addOnSuccessListener
+                    val uid = firebaseUser.uid
+                    val db = Firebase.firestore
+                    // 3) If new user, write minimal profile; then navigate home
+                    db.collection("Users").document(uid).get()
+                        .addOnSuccessListener { doc ->
+                            if (!doc.exists()) {
+                                val name  = account.displayName.orEmpty()
+                                val email = firebaseUser.email.orEmpty()
+                                db.collection("Users").document(uid)
+                                    .set(mapOf(
+                                        "username" to name.replace(" ", "_").lowercase(),
+                                        "email"    to email
+                                    ))
+                                    .addOnSuccessListener {
+                                        navController.navigate(HomeScreen) {
+                                            popUpTo(LoginSignupScreen) { inclusive = true }
+                                        }
+                                    }
+                            } else {
+                                navController.navigate(HomeScreen) {
+                                    popUpTo(LoginSignupScreen) { inclusive = true }
+                                }
+                            }
+                        }
+                }
+        } catch (e: Exception) {
+            Log.e("GoogleSignIn", "Failed to sign in with Google", e)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -82,8 +138,21 @@ fun LoginSignupScreenFunction(navController: NavController) {
             fontSize = 40.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
-            modifier = Modifier.padding(bottom = 80.dp)
+            modifier = Modifier.padding(bottom = 40.dp)
         )
+
+
+        Button(
+            onClick = { googleLauncher.launch(googleClient.signInIntent) },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 48.dp, vertical = 8.dp)
+                .height(50.dp)
+        ) {
+            Text("Sign in with Google", color = Color.White, fontSize = 18.sp)
+        }
+
 
         Button(
             onClick = { navController.navigate(LoginScreen) },
@@ -96,6 +165,7 @@ fun LoginSignupScreenFunction(navController: NavController) {
             Text("Login", fontSize = 18.sp, color = Color.White)
         }
 
+
         Button(
             onClick = { navController.navigate(FirstNameScreen) },
             colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
@@ -105,6 +175,18 @@ fun LoginSignupScreenFunction(navController: NavController) {
                 .height(50.dp)
         ) {
             Text("Sign Up", fontSize = 18.sp, color = Color.White)
+        }
+
+
+        TextButton(
+            onClick = { googleLauncher.launch(googleClient.signInIntent) },
+            modifier = Modifier.padding(top = 8.dp)
+        ) {
+            Text(
+                text = "Or create account with Google",
+                color = Color.LightGray,
+                fontSize = 14.sp
+            )
         }
     }
 }

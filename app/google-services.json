@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "41502535889",
+    "firebase_url": "https://nowplay-87a5c-default-rtdb.firebaseio.com",
     "project_id": "nowplay-87a5c",
     "storage_bucket": "nowplay-87a5c.firebasestorage.app"
   },
@@ -12,7 +13,20 @@
           "package_name": "com.example.nowplay"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "41502535889-e1m7rekdmkk7oths0hi624tqej60te8b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.nowplay",
+            "certificate_hash": "b471a01de8b8554c248c0ab00cfdd66c655d7e33"
+          }
+        },
+        {
+          "client_id": "41502535889-vvqcfa3psvlk068pqllu0mtd395rkh64.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBqCejuDzanB9_-JJzru_xdmmjMKhpApHY"
@@ -20,7 +34,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "41502535889-vvqcfa3psvlk068pqllu0mtd395rkh64.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
