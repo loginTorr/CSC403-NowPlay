@@ -98,6 +98,8 @@ fun HomeScreenFunction() {
     var userPost by remember { mutableStateOf<List<Post>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     val samplePosts = remember { getFriendsPosts() } // Only call once
+    var friendPosts by remember { mutableStateOf<List<Post>>(emptyList()) }
+
 
     LaunchedEffect(Unit) {
         isLoading = true
@@ -106,27 +108,62 @@ fun HomeScreenFunction() {
             if (user != null) {
                 val db = Firebase.firestore
 
-                val document = db.collection("Users")
+                val UserDoc = db.collection("Users")
                     .document(user.uid)
                     .collection("CurrentPost")
                     .document("current")
                     .get()
                     .await()
 
-                if (document.exists() && document.toObject(Post::class.java) != null) {
-                    // Add post to list or use as single item
-                    userPost = listOf(document.toObject(Post::class.java)!!)
+                if (UserDoc.exists() && UserDoc.toObject(Post::class.java) != null) {
+                    userPost = listOf(UserDoc.toObject(Post::class.java)!!)
                 } else {
-                    // Handle case when no document exists
                     Log.d("POST FINDER", "No current post found")
                 }
+
+                val FriendIDs = db.collection("Users")
+                    .document(user.uid)
+                    .collection("Friends")
+                    .get()
+                    .await()
+
+                val tempFriendPosts = mutableListOf<Post>()
+
+                for (friendDoc in FriendIDs.documents) {
+                    try {
+                        val friendId = friendDoc.id
+                        Log.d("FRIEND", "Processing friend: $friendId")
+
+                        // Fetch this friend's current post
+                        val friendPostDoc = db.collection("Users")
+                            .document(friendId)
+                            .collection("CurrentPost")
+                            .document("current")
+                            .get()
+                            .await()
+
+                        if (friendPostDoc.exists()) {
+                            val friendPost = friendPostDoc.toObject(Post::class.java)
+                            if (friendPost != null) {
+                                tempFriendPosts.add(friendPost)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("FRIEND_POST_ERROR", "Failed to fetch post for friend: ${e.message}")
+                    }
+                }
+                friendPosts = tempFriendPosts
+
             }
         } catch (e: Exception) {
-            Log.d("COULDN'T FIND POST", "Error fetching current post: ${e.message}")
+            Log.e("DATA_LOAD_ERROR", "Error loading data: ${e.message}")
         } finally {
             isLoading = false
         }
+
     }
+
+
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -163,7 +200,7 @@ fun HomeScreenFunction() {
             )
         }
     } else {
-        DisplayHomePageFeed(userPost, samplePosts)
+        DisplayHomePageFeed(userPost, friendPosts)
     }
 }
 
