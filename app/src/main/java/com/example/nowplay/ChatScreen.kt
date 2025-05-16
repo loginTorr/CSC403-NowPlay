@@ -117,6 +117,29 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
     val messages = remember { mutableStateListOf<Message>() }
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
+    LaunchedEffect(friend.friendId) {
+        val db = FirebaseFirestore.getInstance()
+        val currentUserIdLE = FirebaseAuth.getInstance().currentUser?.uid ?: return@LaunchedEffect
+
+        db.collection("Users").document(currentUserIdLE)
+            .collection("Chats").document(friend.friendId)
+            .collection("Messages")
+            .orderBy("timestamp")
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null) {
+                    messages.clear()
+                    messages.addAll(snapshot.documents.mapNotNull { doc ->
+                        val data = doc.data ?: return@mapNotNull null
+                        Message(
+                            senderId = data["senderId"] as? String ?: return@mapNotNull null,
+                            text = data["text"] as? String ?: "",
+                            timestamp = data["timestamp"] as? Long ?: 0L
+                        )
+                    })
+                }
+            }
+    }
+
 
     Column(modifier = Modifier.fillMaxSize()
         .background(Color(26, 27, 28), shape = RoundedCornerShape(0.dp))) {
@@ -172,16 +195,26 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Button(onClick = {
-                if (messageText.isNotBlank()) {
-                    messages.add(
-                        Message(
-                            senderId = currentUserId,
-                            text = messageText,
-                            timestamp = System.currentTimeMillis()
-                        )
-                    )
-                    messageText = ""
-                }
+                val db = FirebaseFirestore.getInstance()
+                val message = mapOf(
+                    "senderId" to currentUserId,
+                    "text" to messageText,
+                    "timestamp" to System.currentTimeMillis()
+                )
+
+                // Write to current user's message list
+                db.collection("Users").document(currentUserId)
+                    .collection("Chats").document(friend.friendId)
+                    .collection("Messages")
+                    .add(message)
+
+               // Write to recipient's message list
+                db.collection("Users").document(friend.friendId)
+                    .collection("Chats").document(currentUserId)
+                    .collection("Messages")
+                    .add(message)
+
+                messageText = ""
             }) {
                 Text("Send")
             }
