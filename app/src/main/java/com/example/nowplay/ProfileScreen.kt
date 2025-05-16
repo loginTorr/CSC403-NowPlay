@@ -1,7 +1,6 @@
 package com.example.nowplay
 
 import android.annotation.SuppressLint
-import android.content.ContentValues.TAG
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult // pfp
@@ -136,7 +135,7 @@ fun ProfileScreenFunction(navController: NavHostController) {
         postCollection.get().addOnSuccessListener { documents ->
             posts.clear()
             for (doc in documents) {
-                doc.toObject(Post::class.java)?.let { p ->
+                doc.toObject(Post::class.java).let { p ->
                     posts.add(p)
                 }
             }
@@ -149,14 +148,14 @@ fun ProfileScreenFunction(navController: NavHostController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 40.dp),
+                .padding(top = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Settings button
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(start = 16.dp, end = 16.dp, bottom = 30.dp),
                 contentAlignment = Alignment.TopEnd
             ) {
                 Button(

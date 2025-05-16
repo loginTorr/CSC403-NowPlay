@@ -73,6 +73,10 @@ object ViewPostScreen
 object SettingsScreen
 @Serializable
 object EditProfileScreen
+@Serializable
+object DeleteAccountScreen
+@Serializable
+object NotificationScreen
 
 @Composable
 fun LoginSignupScreenFunction(navController: NavController) {

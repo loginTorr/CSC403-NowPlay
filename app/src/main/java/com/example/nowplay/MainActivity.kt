@@ -148,7 +148,9 @@ class MainActivity : ComponentActivity() {
                     LoginSignupScreen::class.qualifiedName,
                     ViewPostScreen::class.qualifiedName,
                     SettingsScreen::class.qualifiedName,
-                    EditProfileScreen::class.qualifiedName
+                    EditProfileScreen::class.qualifiedName,
+                    DeleteAccountScreen::class.qualifiedName,
+                    NotificationScreen::class.qualifiedName
                 )
 
                 val showBottomBar = currentDestination?.route !in onboardingScreens
@@ -337,6 +339,12 @@ class MainActivity : ComponentActivity() {
                             }
                             composable<EditProfileScreen> {
                                 EditProfileScreenFunction(navController = navController)
+                            }
+                            composable<DeleteAccountScreen> {
+                                DeleteAccountScreenFunction(navController = navController)
+                            }
+                            composable<NotificationScreen> {
+                                NotificationScreenFunction(navController = navController)
                             }
                         }
                     }
