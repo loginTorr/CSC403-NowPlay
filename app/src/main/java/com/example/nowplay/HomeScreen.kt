@@ -54,50 +54,10 @@ import kotlinx.coroutines.tasks.await
 import java.util.Date
 
 
-fun getFriendsPosts(): List<Post> {
-    return listOf(
-        Post("NotNick", "Weird Fishes","RadioHead", "In Rainbows", "https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        Post("Aiden", "Stir Fry", "Migos", "Culture II","https://i.scdn.co/image/ab67616d0000b273e43e574f285798733979ba66"),
-        Post("Tommy", "Dance, Dance", "Fall Out Boy", "From Under The Cork Tree", "https://i.scdn.co/image/ab67616d0000b27371565eda831124be86c603d5"),
-        Post("MoseyAlong", "Washing Machine Heart", "Mitski", "Be The Cowboy","https://i.scdn.co/image/ab67616d0000b273c428f67b4a9b7e1114dfc117"),
-        Post("5", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        Post("6", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        Post("7", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-        Post("8", "sampleSong", "sampleArtist", "Weird Fishes","https://i.scdn.co/image/ab67616d0000b273de3c04b5fc750b68899b20a9"),
-    )
-}
-
-
-suspend fun getUserPost(): Post? {
-    val user = FirebaseAuth.getInstance().currentUser
-    if (user != null) {
-        val db = Firebase.firestore
-        val snapshot = db.collection("CurrentPost").document("current").get().await()
-        return if (snapshot.exists()) snapshot.toObject(Post::class.java) else null
-    }
-    return null
-}
-
-
-
-
-/*
-fun grabUserPostValues(userId: String, songName: String, artistName: String, albumName: String, songPicture: String, timeStamp: Date? = Date()): MutableState<Post> {
-    var UserPost by remember { mutableStateOf(Post("","","","","",null))}
-    UserPost = Post(userId, songName, artistName, albumName, songPicture, timeStamp)
-    return(UserPost)
-}
-*/
-
-fun addUserPostToDatabase(userId: String, songName: String, artistName: String, albumName: String, image: String, timeStamp: Date? = Date()) {
-    println("songName: $songName " + "artistName: $artistName " + "albumName: $albumName" + "image: $image" )
-}
-
 @Composable
 fun HomeScreenFunction() {
     var userPost by remember { mutableStateOf<List<Post>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    val samplePosts = remember { getFriendsPosts() } // Only call once
     var friendPosts by remember { mutableStateOf<List<Post>>(emptyList()) }
 
 
@@ -132,9 +92,15 @@ fun HomeScreenFunction() {
                 for (friendDoc in FriendIDs.documents) {
                     try {
                         val friendId = friendDoc.id
-                        Log.d("FRIEND", "Processing friend: $friendId")
+                        val friendProfileDoc = db.collection("Users")
+                            .document(friendId)
+                            .get()
+                            .await()
 
-                        // Fetch this friend's current post
+                        val friendUsername = friendProfileDoc.getString("username") ?:
+                        friendProfileDoc.getString("displayName") ?:
+                        "Friend"
+
                         val friendPostDoc = db.collection("Users")
                             .document(friendId)
                             .collection("CurrentPost")
@@ -145,7 +111,10 @@ fun HomeScreenFunction() {
                         if (friendPostDoc.exists()) {
                             val friendPost = friendPostDoc.toObject(Post::class.java)
                             if (friendPost != null) {
-                                tempFriendPosts.add(friendPost)
+                                val postWithUsername = friendPost.copy(
+                                    userId = friendUsername  // Replace the ID with username
+                                )
+                                tempFriendPosts.add(postWithUsername)
                             }
                         }
                     } catch (e: Exception) {
