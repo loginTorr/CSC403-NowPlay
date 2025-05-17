@@ -33,6 +33,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import com.google.firebase.firestore.FieldValue
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.filled.MoreVert
 
 
 data class Message(
@@ -111,11 +113,22 @@ fun ChatRow(chat: ChatPreview, onClick: () -> Unit) {
     }
 }
 
+fun deleteChatRowForCurrentUser(friendId: String) {
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+    FirebaseFirestore.getInstance()
+        .collection("Users").document(currentUserId)
+        .collection("Chats").document(friendId)
+        .delete()
+}
+
+
 @Composable
 fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
     var messageText by remember { mutableStateOf("") }
     val messages = remember { mutableStateListOf<Message>() }
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+    var menuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(friend.friendId) {
         val db = FirebaseFirestore.getInstance()
@@ -145,12 +158,35 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
         .background(Color(26, 27, 28), shape = RoundedCornerShape(0.dp))) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                Text(friend.friendName, color = Color.White, fontSize = 20.sp)
             }
-            Text(friend.friendName, color = Color.White, fontSize = 20.sp)
+
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = Color.White)
+                }
+
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Delete Chat") },
+                        onClick = {
+                            menuExpanded = false
+                            deleteChatRowForCurrentUser(friend.friendId)
+                            onBack() // exit the chat screen
+                        }
+                    )
+                }
+            }
         }
 
         LazyColumn(
@@ -195,26 +231,45 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Button(onClick = {
-                val db = FirebaseFirestore.getInstance()
-                val message = mapOf(
-                    "senderId" to currentUserId,
-                    "text" to messageText,
-                    "timestamp" to System.currentTimeMillis()
-                )
+                if (messageText.isBlank()) {
+                    return@Button
+                } else {
+                    val db = FirebaseFirestore.getInstance()
+                    val message = mapOf(
+                        "senderId" to currentUserId,
+                        "text" to messageText,
+                        "timestamp" to System.currentTimeMillis()
+                    )
 
-                // Write to current user's message list
-                db.collection("Users").document(currentUserId)
-                    .collection("Chats").document(friend.friendId)
-                    .collection("Messages")
-                    .add(message)
+                    // Write to current user's message list
+                    db.collection("Users").document(currentUserId)
+                        .collection("Chats").document(friend.friendId)
+                        .collection("Messages")
+                        .add(message)
 
-               // Write to recipient's message list
-                db.collection("Users").document(friend.friendId)
-                    .collection("Chats").document(currentUserId)
-                    .collection("Messages")
-                    .add(message)
+                    // Write to recipient's message list
+                    db.collection("Users").document(friend.friendId)
+                        .collection("Chats").document(currentUserId)
+                        .collection("Messages")
+                        .add(message)
 
-                messageText = ""
+                    val previewUpdate = mapOf(
+                        "lastMessage" to messageText,
+                        "timestamp" to System.currentTimeMillis()
+                    )
+
+                    // Update current user's chat preview so chat shows up at top
+                    db.collection("Users").document(currentUserId)
+                        .collection("Chats").document(friend.friendId)
+                        .update(previewUpdate)
+
+                    // Update recipient's chat preview
+                    db.collection("Users").document(friend.friendId)
+                        .collection("Chats").document(currentUserId)
+                        .update(previewUpdate)
+
+                    messageText = ""
+                }
             }) {
                 Text("Send")
             }
