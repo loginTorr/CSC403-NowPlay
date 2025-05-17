@@ -316,6 +316,9 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable<ChatScreen> {
+                                LaunchedEffect(true) {
+                                    chatViewModel.startListeningForChats()
+                                }
                                 if (activeChat != null) {
                                     ChatDetailScreen(
                                         friend = activeChat!!,
