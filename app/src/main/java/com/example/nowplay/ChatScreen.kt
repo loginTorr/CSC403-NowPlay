@@ -53,7 +53,8 @@ data class ChatPreview (
     val profileImageUrl: String = "",
     val lastMessage: String = "",
     val timestamp: Long = 0L,
-    val chatId: String = ""
+    val chatId: String = "",
+    val isUnread: Boolean = false
 )
 
 // for formatting timestamps for chat messages
@@ -120,9 +121,12 @@ fun LoadChatsForCurrentUser(onChatsLoaded: (List<Chat>) -> Unit) {
 
 @Composable
 fun ChatRow(chat: ChatPreview, onClick: () -> Unit) {
+    val rowColor = if (chat.isUnread) Color(0xFF2D2D2D) else Color.Transparent
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(rowColor)
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -153,7 +157,7 @@ fun deleteChatRowForCurrentUser(friendId: String) {
         .delete()
 }
 
-// responisble for showing the chat screens, including the back button, deletes, sending messages
+// responsible for showing the chat screens, including the back button, deletes, sending messages
 @Composable
 fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
     var messageText by remember { mutableStateOf("") }
@@ -187,6 +191,10 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
                     })
                 }
             }
+
+        db.collection("Users").document(currentUserId)
+            .collection("Chats").document(friend.friendId)
+            .update("unread", false)
     }
 
 
@@ -283,21 +291,27 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
                         .collection("Messages")
                         .add(message)
 
-                    // Update preview data for both users
-                    val previewUpdate = mapOf(
+                    // Update users chat preview (for timestamp + lastMessage only)
+                    val myPreviewUpdate = mapOf(
                         "lastMessage" to messageText,
                         "timestamp" to System.currentTimeMillis()
                     )
 
-                    // Update current user's chat preview so chat shows up at top
                     db.collection("Users").document(currentUserId)
                         .collection("Chats").document(friend.friendId)
-                        .update(previewUpdate)
+                        .update(myPreviewUpdate)
 
-                    // Update recipient's chat preview
+
+                    // Update receiver chat preview (include unread = true)
+                    val recipientPreviewUpdate = mapOf(
+                        "lastMessage" to messageText,
+                        "timestamp" to System.currentTimeMillis(),
+                        "unread" to true
+                    )
+
                     db.collection("Users").document(friend.friendId)
                         .collection("Chats").document(currentUserId)
-                        .update(previewUpdate)
+                        .update(recipientPreviewUpdate)
 
                     messageText = ""
                 }
@@ -331,7 +345,8 @@ class ChatViewModel : ViewModel() {
                             friendName = data["friendName"] as? String ?: "Unknown",
                             profileImageUrl = data["profileImageUrl"] as? String ?: "",
                             lastMessage = data["lastMessage"] as? String ?: "",
-                            timestamp = data["timestamp"] as? Long ?: 0L
+                            timestamp = data["timestamp"] as? Long ?: 0L,
+                            isUnread = data["unread"] as? Boolean ?: false
                         )
                     }.sortedByDescending { it.timestamp }
                     _chatList.value = chats
