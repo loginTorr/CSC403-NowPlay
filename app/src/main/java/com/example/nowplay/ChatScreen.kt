@@ -99,53 +99,45 @@ fun ChatListScreen(
     }
 }
 
-@Composable
-fun LoadChatsForCurrentUser(onChatsLoaded: (List<Chat>) -> Unit) {
-    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-    FirebaseFirestore.getInstance()
-        .collection("users")
-        .document(currentUserId)
-        .collection("chats")
-        .addSnapshotListener { snapshot, _ ->
-            if (snapshot != null && !snapshot.isEmpty) {
-                val chats = snapshot.documents.mapNotNull { doc ->
-                    val otherUserId = doc.getString("otherUserId") ?: return@mapNotNull null
-                    val chatId = doc.getString("chatId") ?: return@mapNotNull null
-                    Chat(friendId = otherUserId, friendName = "", chatId = chatId) // Add logic to get friend name if needed
-                }
-                onChatsLoaded(chats)
-            }
-        }
-}
-
 
 @Composable
 fun ChatRow(chat: ChatPreview, onClick: () -> Unit) {
     val rowColor = if (chat.isUnread) Color(0xFF2D2D2D) else Color.Transparent
 
-    Row(
+    Surface(
+        color = rowColor,
+        shape = RoundedCornerShape(12.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .background(rowColor)
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 4.dp, horizontal = 8.dp)
     ) {
-        ProfileImage(url = chat.profileImageUrl, size = 48.dp)
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(chat.friendName, color = Color.White, fontSize = 16.sp)
-                Text(text = formatTimestamp(chat.timestamp), color = Color.Gray, fontSize = 12.sp)
-            }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(rowColor)
+                .clickable(onClick = onClick)
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ProfileImage(url = chat.profileImageUrl, size = 48.dp)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(chat.friendName, color = Color.White, fontSize = 16.sp)
+                    Text(text = formatTimestamp(chat.timestamp), color = Color.Gray, fontSize = 12.sp)
+                }
 
-            Text(chat.lastMessage, color = Color.Gray, fontSize = 14.sp, maxLines = 1)
+                Text(chat.lastMessage, color = Color.Gray, fontSize = 14.sp, maxLines = 1)
+            }
         }
     }
+
+
 }
 
 // deletes the chat row once a user deletes a chat
