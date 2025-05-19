@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -77,6 +78,8 @@ fun ProfileScreenFunction(navController: NavHostController) {
     var numFriends by rememberSaveable { mutableIntStateOf(0) }
     var tempUser   by remember { mutableStateOf(User()) }
     var username   by remember { mutableStateOf("") }
+    var bio        by remember { mutableStateOf("") }
+    var location   by remember { mutableStateOf("") }
 
 
     var profileImageUrl by rememberSaveable { mutableStateOf<String?>(null) }
@@ -125,6 +128,8 @@ fun ProfileScreenFunction(navController: NavHostController) {
                     doc.toObject(User::class.java)?.let { u ->
                         tempUser = u
                         username = u.username.orEmpty()
+                        bio = u.bio.orEmpty()
+                        location = u.location.orEmpty()
                     }
                 }
         }
@@ -207,6 +212,19 @@ fun ProfileScreenFunction(navController: NavHostController) {
                 modifier = Modifier.padding(top = 8.dp),
                 fontSize  = 25.sp,
                 fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = bio,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 4.dp),
+                fontSize  = 15.sp,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = location,
+                color = Color.Gray,
+                modifier = Modifier.padding(top = 4.dp),
+                fontSize  = 15.sp
             )
 
             // Counts row
