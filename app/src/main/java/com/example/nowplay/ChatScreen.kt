@@ -35,6 +35,10 @@ import kotlinx.coroutines.flow.StateFlow
 import com.google.firebase.firestore.FieldValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import java.text.SimpleDateFormat
+import java.util.*
 
 
 data class Message(
@@ -51,6 +55,25 @@ data class ChatPreview (
     val timestamp: Long = 0L,
     val chatId: String = ""
 )
+
+// for formatting timestamps for chat messages
+fun formatTimestamp(timestamp: Long): String {
+    val now = System.currentTimeMillis()
+    val diff = now - timestamp
+    val date = Date(timestamp)
+
+    return when {
+        diff < 86_400_000 -> { // less than 24 hours
+            SimpleDateFormat("h:mm a", Locale.getDefault()).format(date) // e.g. "2:45 PM"
+        }
+        diff < 172_800_000 -> {
+            "Yesterday"
+        }
+        else -> {
+            SimpleDateFormat("MMM d", Locale.getDefault()).format(date) // e.g. "May 17"
+        }
+    }
+}
 
 @Composable
 fun ChatListScreen(
@@ -106,13 +129,22 @@ fun ChatRow(chat: ChatPreview, onClick: () -> Unit) {
     ) {
         ProfileImage(url = chat.profileImageUrl, size = 48.dp)
         Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(chat.friendName, color = Color.White, fontSize = 16.sp)
-            Text(chat.lastMessage, color = Color.Gray, fontSize = 14.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(chat.friendName, color = Color.White, fontSize = 16.sp)
+                Text(text = formatTimestamp(chat.timestamp), color = Color.Gray, fontSize = 12.sp)
+            }
+
+            Text(chat.lastMessage, color = Color.Gray, fontSize = 14.sp, maxLines = 1)
         }
     }
 }
 
+// deletes the chat row once a user deletes a chat
 fun deleteChatRowForCurrentUser(friendId: String) {
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
     FirebaseFirestore.getInstance()
@@ -121,7 +153,7 @@ fun deleteChatRowForCurrentUser(friendId: String) {
         .delete()
 }
 
-
+// responisble for showing the chat screens, including the back button, deletes, sending messages
 @Composable
 fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
     var messageText by remember { mutableStateOf("") }
@@ -130,12 +162,16 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
 
     var menuExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(friend.friendId) {
-        val db = FirebaseFirestore.getInstance()
-        val currentUserIdLE = FirebaseAuth.getInstance().currentUser?.uid ?: return@LaunchedEffect
+    // for live messaging unify the chat Id
+    val chatId = remember(friend.friendId) {
+        listOf(currentUserId, friend.friendId).sorted().joinToString("_") // new
+    }
 
-        db.collection("Users").document(currentUserIdLE)
-            .collection("Chats").document(friend.friendId)
+    // real time listener for shared messages collection
+    LaunchedEffect(chatId) {
+        val db = FirebaseFirestore.getInstance()
+
+        db.collection("Messages").document(chatId)
             .collection("Messages")
             .orderBy("timestamp")
             .addSnapshotListener { snapshot, _ ->
@@ -227,7 +263,8 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
                 value = messageText,
                 onValueChange = { messageText = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Type a message...") }
+                placeholder = { Text("Type a message...") },
+                shape = RoundedCornerShape(12.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Button(onClick = {
@@ -241,18 +278,12 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
                         "timestamp" to System.currentTimeMillis()
                     )
 
-                    // Write to current user's message list
-                    db.collection("Users").document(currentUserId)
-                        .collection("Chats").document(friend.friendId)
+                    // Send message to shared chat location
+                    db.collection("Messages").document(chatId)
                         .collection("Messages")
                         .add(message)
 
-                    // Write to recipient's message list
-                    db.collection("Users").document(friend.friendId)
-                        .collection("Chats").document(currentUserId)
-                        .collection("Messages")
-                        .add(message)
-
+                    // Update preview data for both users
                     val previewUpdate = mapOf(
                         "lastMessage" to messageText,
                         "timestamp" to System.currentTimeMillis()
@@ -279,7 +310,7 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
 }
 
 
-// chat view model to handle logic of chats
+// chat view model to handle logic of chats and list any chats opened
 class ChatViewModel : ViewModel() {
 
     private val _chatList = MutableStateFlow<List<ChatPreview>>(emptyList())
@@ -312,7 +343,7 @@ class ChatViewModel : ViewModel() {
         val db = FirebaseFirestore.getInstance()
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val otherUserId = chat.friendId
-        val chatId = chat.chatId // ✅ Right here — this works inside the function
+        val chatId = chat.chatId
 
         val currentUserChat = mapOf(
             "chatId" to chatId,
