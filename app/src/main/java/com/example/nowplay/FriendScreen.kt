@@ -416,7 +416,7 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Invite friends on BeReal",
+                        text = "Invite friends on NowPlaying",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
