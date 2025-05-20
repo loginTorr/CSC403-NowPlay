@@ -88,5 +88,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.4.3")
     implementation("com.google.android.gms:play-services-auth:20.6.0")
 
+    implementation("androidx.compose.material3:material3:1.3.2")
+
 }
 apply(plugin = "com.google.gms.google-services")
