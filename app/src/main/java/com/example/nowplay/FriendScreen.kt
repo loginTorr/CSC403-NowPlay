@@ -47,6 +47,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import coil.compose.AsyncImage
 
@@ -416,7 +417,7 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Invite friends on NowPlaying",
+                        text = "Invite friends on NowPlaying.",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
@@ -521,6 +522,8 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat
     ) {
         val (uid, data) = selectedFriend!!
         val profileImageUrl = data["profileImageUrl"] as? String ?: ""
+        val bio = data["bio"] as? String ?: ""
+        val location = data["location"] as? String ?: ""
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -588,6 +591,23 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat
                     fontSize = 16.sp,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
+                if (bio.isNotBlank()) {
+                    Text(
+                        text = bio,
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                }
+
+                if (location.isNotBlank()) {
+                    Text(
+                        text = location,
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -747,7 +767,9 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat
                                         .set(mapOf(
                                             "firstName" to data["firstName"],
                                             "username" to data["username"],
-                                            "profileImageUrl" to data["profileImageUrl"]
+                                            "profileImageUrl" to data["profileImageUrl"],
+                                            "bio" to data["bio"],
+                                            "location" to data["location"]
                                         ))
                                         .addOnSuccessListener {
                                             // Add the current user to the sender's friends list
@@ -756,6 +778,8 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat
                                                     val myUsername = currentUserDoc.getString("username") ?: ""
                                                     val myFirstName = currentUserDoc.getString("firstName") ?: ""
                                                     val myProfileImageUrl = currentUserDoc.getString("profileImageUrl") ?: ""
+                                                    val myBio = currentUserDoc.getString("bio") ?: ""
+                                                    val myLocation = currentUserDoc.getString("location") ?: ""
 
                                                     db.collection("Users").document(senderId)
                                                         .collection("Friends")
@@ -763,7 +787,9 @@ fun FriendsScreenFunction(viewModel: FriendsViewModel = viewModel(), onStartChat
                                                         .set(mapOf(
                                                             "firstName" to myFirstName,
                                                             "username" to myUsername,
-                                                            "profileImageUrl" to myProfileImageUrl
+                                                            "profileImageUrl" to myProfileImageUrl,
+                                                            "bio" to myBio,
+                                                            "location" to myLocation
                                                         ))
                                                         .addOnSuccessListener {
                                                             // Now remove the request
