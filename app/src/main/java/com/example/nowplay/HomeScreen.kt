@@ -6,9 +6,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,12 +21,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,6 +47,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,12 +62,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 
+data class Comment(
+    val userId: String = "",
+    val username: String = "",
+    val text: String = "",
+    val timestamp: Long = 0L,
+    val commentId: String = ""
+)
 
 @Composable
 fun HomeScreenFunction() {
@@ -433,19 +447,7 @@ fun PostFriendItems(post: Post) {
         ) {
             SendButton(post)
 
-            IconButton (
-                onClick = {/* TODO: Implement button functionality */ },
-
-                )
-            {
-                Icon(
-                    Icons.Filled.AddCircle,
-                    contentDescription =  "",
-                    tint = Color.White,
-                    modifier = Modifier
-                        .size(40.dp)
-                )
-            }
+            CommentButton(post)
 
 
             IconButton (
@@ -830,6 +832,371 @@ fun SendMessageDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun CommentButton(post: Post) {
+    var showCommentDialog by remember { mutableStateOf(false) }
+
+    IconButton(
+        onClick = { showCommentDialog = true }
+    ) {
+        Icon(
+            Icons.Filled.AddCircle,
+            contentDescription = "Comments",
+            tint = Color.White,
+            modifier = Modifier.size(40.dp)
+        )
+    }
+
+    if (showCommentDialog) {
+        CommentDialog(
+            post = post,
+            onDismiss = { showCommentDialog = false }
+        )
+    }
+}
+
+@Composable
+fun CommentDialog(
+    post: Post,
+    onDismiss: () -> Unit
+) {
+    val commentText = remember { mutableStateOf("") }
+    val comments = remember { mutableStateListOf<Comment>() }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    var currentUserName by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Load current user's name
+    LaunchedEffect(currentUserId) {
+        Firebase.firestore.collection("Users").document(currentUserId)
+            .get()
+            .addOnSuccessListener { document ->
+                currentUserName = document.getString("username") ?: ""
+            }
+    }
+
+    // Load existing comments
+    LaunchedEffect(post) {
+        isLoading = true
+        Firebase.firestore
+            .collection("Users")
+            .document(post.userId)
+            .collection("CurrentPost")
+            .document("current")
+            .collection("Comments")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("COMMENTS", "Failed to load comments", error)
+                    isLoading = false
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    val loadedComments = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(Comment::class.java)?.copy(commentId = doc.id)
+                    }
+                    comments.apply {
+                        synchronized(this) {
+                            clear()
+                            addAll(loadedComments)
+                        }
+                    }
+                    isLoading = false
+                }
+            }
+    }
+
+    // Function to add a comment
+    fun addComment() {
+        if (commentText.value.isBlank() || currentUserName.isBlank()) return
+
+        val comment = Comment(
+            userId = currentUserId,
+            username = currentUserName,
+            text = commentText.value,
+            timestamp = System.currentTimeMillis()
+        )
+
+        Firebase.firestore
+            .collection("Users")
+            .document(post.userId)
+            .collection("CurrentPost")
+            .document("current")
+            .collection("Comments")
+            .add(comment)
+            .addOnSuccessListener {
+                commentText.value = ""
+            }
+            .addOnFailureListener { e ->
+                Log.e("COMMENTS", "Failed to add comment", e)
+            }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.8f),
+            shape = RoundedCornerShape(16.dp),
+            color = Color(30, 30, 30)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Header with song info and close button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(40, 40, 40))
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        // Album artwork
+                        AsyncImage(
+                            model = post.songPicture,
+                            contentDescription = "Album Artwork",
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        // Song info
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = post.songName,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "${post.artistName} • ${post.albumName}",
+                                color = Color.LightGray,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    // Close button
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Close",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                // Comments list
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.align(Alignment.Center),
+                            color = Color.White
+                        )
+                    } else if (comments.isEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "No comments yet",
+                                color = Color.Gray,
+                                fontSize = 16.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Be the first to comment on this post",
+                                color = Color.Gray,
+                                fontSize = 14.sp
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(vertical = 16.dp)
+                        ) {
+                            items(comments, key = { it.commentId }) { comment ->
+                                CommentItem(comment, currentUserId)
+                            }
+                        }
+                    }
+                }
+
+                // Comment input field
+                Surface(
+                    color = Color(40, 40, 40),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextField(
+                            value = commentText.value,
+                            onValueChange = { commentText.value = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Add a comment...", color = Color.Gray) },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color(60, 60, 60),
+                                unfocusedContainerColor = Color(50, 50, 50),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                cursorColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            singleLine = true
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        IconButton(
+                            onClick = { addComment() },
+                            enabled = commentText.value.isNotBlank()
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Post Comment",
+                                tint = if (commentText.value.isBlank()) Color.Gray else Color(0xFF1DB954)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommentItem(comment: Comment, currentUserId: String) {
+    val isFromCurrentUser = comment.userId == currentUserId
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Top
+    ) {
+        // Profile icon placeholder
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(Color.DarkGray, shape = CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = comment.username.firstOrNull()?.toString() ?: "?",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = comment.username,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = formatTimestamp(comment.timestamp),
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+
+                if (isFromCurrentUser) {
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    var showDeleteMenu by remember { mutableStateOf(false) }
+
+                    Box {
+                        IconButton(
+                            onClick = { showDeleteMenu = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Options",
+                                tint = Color.Gray,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showDeleteMenu,
+                            onDismissRequest = { showDeleteMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Delete comment") },
+                                onClick = {
+                                    // Delete comment from database
+                                    val db = Firebase.firestore
+                                    db.collection("Users")
+                                        .document(comment.userId)
+                                        .collection("CurrentPost")
+                                        .document("current")
+                                        .collection("Comments")
+                                        .document(comment.commentId)
+                                        .delete()
+
+                                    showDeleteMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = comment.text,
+                color = Color.White,
+                fontSize = 16.sp
+            )
         }
     }
 }
