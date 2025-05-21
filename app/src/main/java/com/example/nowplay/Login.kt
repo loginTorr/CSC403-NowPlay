@@ -40,10 +40,16 @@ import kotlinx.serialization.Serializable
 import java.util.concurrent.TimeUnit
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.text.KeyboardOptions
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.GoogleAuthProvider
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 
 @Serializable
 object LoginSignupScreen
@@ -198,45 +204,53 @@ fun LoginSignupScreenFunction(navController: NavController) {
 
 @Composable
 fun LoginScreenFunction(navController: NavController) {
-    val phoneNumber = remember { mutableStateOf("") }
-    val username = remember { mutableStateOf("") }
-    val verificationId = remember { mutableStateOf<String?>(null) }
-    val smsCode = remember { mutableStateOf("") }
-    val errorMessage = remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
+    val rawPhoneDigits   = remember { mutableStateOf("") }
+    val username         = remember { mutableStateOf("") }
+    val verificationId   = remember { mutableStateOf<String?>(null) }
+    val smsCode          = remember { mutableStateOf("") }
+    val errorMessage     = remember { mutableStateOf<String?>(null) }
+    val context          = LocalContext.current
+    val activity         = context as? Activity
+    val auth             = FirebaseAuth.getInstance()
+
+    val isPhoneValid = rawPhoneDigits.value.length == 10
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment   = Alignment.CenterHorizontally,
+        verticalArrangement   = Arrangement.Center
     ) {
         Text("Login", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
 
         OutlinedTextField(
-            value = phoneNumber.value,
-            onValueChange = { phoneNumber.value = it },
-            label = { Text("Phone Number") },
-            textStyle = TextStyle(color = Color.White),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+            value               = rawPhoneDigits.value,
+            onValueChange       = { rawPhoneDigits.value = it.filter { it.isDigit() }.take(10) },
+            label               = { Text("Phone Number") },
+            visualTransformation = PhoneNumberVisualTransformation(),
+            keyboardOptions     = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            textStyle           = TextStyle(color = Color.White),
+            modifier            = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
         )
 
         OutlinedTextField(
-            value = username.value,
+            value       = username.value,
             onValueChange = { username.value = it },
-            label = { Text("Username") },
-            textStyle = TextStyle(color = Color.White),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+            label       = { Text("Username") },
+            textStyle   = TextStyle(color = Color.White),
+            modifier    = Modifier.fillMaxWidth().padding(vertical = 8.dp)
         )
 
         if (verificationId.value != null) {
             OutlinedTextField(
-                value = smsCode.value,
+                value     = smsCode.value,
                 onValueChange = { smsCode.value = it },
-                label = { Text("Verification Code") },
+                label     = { Text("Verification Code") },
                 textStyle = TextStyle(color = Color.White),
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                modifier  = Modifier.fillMaxWidth().padding(vertical = 8.dp)
             )
         }
 
@@ -248,38 +262,47 @@ fun LoginScreenFunction(navController: NavController) {
 
         Button(
             onClick = {
+                if (activity == null) {
+                    errorMessage.value = "Activity context not available"
+                    return@Button
+                }
+
                 if (verificationId.value == null) {
-                    // send code
-                    val options = PhoneAuthOptions.newBuilder(FirebaseAuth.getInstance())
-                        .setPhoneNumber(phoneNumber.value)
+                    // ⚡️ DISABLE real SafetyNet/recaptcha for TESTING only
+                    auth.firebaseAuthSettings.setAppVerificationDisabledForTesting(true)
+
+                    val options = PhoneAuthOptions.newBuilder(auth)
+                        .setPhoneNumber("+1${rawPhoneDigits.value}")
                         .setTimeout(60L, TimeUnit.SECONDS)
-                        .setActivity(context as Activity)
+                        .setActivity(activity)
                         .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                                // auto-verification
-                                FirebaseAuth.getInstance().signInWithCredential(credential)
+                                auth.signInWithCredential(credential)
                                     .addOnCompleteListener {
                                         if (it.isSuccessful) {
                                             checkUserInFirestore(navController, username.value)
                                         }
                                     }
                             }
-
                             override fun onVerificationFailed(e: FirebaseException) {
                                 errorMessage.value = "Verification failed: ${e.message}"
                             }
-
-                            override fun onCodeSent(vid: String, token: PhoneAuthProvider.ForceResendingToken) {
+                            override fun onCodeSent(
+                                vid: String,
+                                token: PhoneAuthProvider.ForceResendingToken
+                            ) {
                                 verificationId.value = vid
                             }
-
                         })
                         .build()
+
                     PhoneAuthProvider.verifyPhoneNumber(options)
+
                 } else {
-                    // verify code manually
-                    val credential = PhoneAuthProvider.getCredential(verificationId.value!!, smsCode.value)
-                    FirebaseAuth.getInstance().signInWithCredential(credential)
+                    val credential = PhoneAuthProvider
+                        .getCredential(verificationId.value!!, smsCode.value)
+
+                    auth.signInWithCredential(credential)
                         .addOnCompleteListener {
                             if (it.isSuccessful) {
                                 checkUserInFirestore(navController, username.value)
@@ -289,9 +312,11 @@ fun LoginScreenFunction(navController: NavController) {
                         }
                 }
             },
-            enabled = phoneNumber.value.isNotBlank() && username.value.isNotBlank() &&
+            enabled = isPhoneValid && username.value.isNotBlank() &&
                     (verificationId.value == null || smsCode.value.length == 6),
-            modifier = Modifier.fillMaxWidth().height(50.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
         ) {
             Text(if (verificationId.value == null) "Send Code" else "Verify & Login")
         }
@@ -301,6 +326,12 @@ fun LoginScreenFunction(navController: NavController) {
         }
     }
 }
+
+
+
+
+
+
 
 private fun checkUserInFirestore(navController: NavController, username: String) {
     val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -384,6 +415,10 @@ fun PhoneNumberScreenFunction(phoneNumber: MutableState<String>, navController: 
     val verificationId = remember { mutableStateOf<String?>(null) }
     val smsCode = remember { mutableStateOf("") }
     val context = LocalContext.current
+    val activity = context as? Activity
+
+    val isPhoneValid = phoneNumber.value.length == 10
+    val fullPhoneNumber = "+1${phoneNumber.value}"
 
     Column(
         modifier = Modifier
@@ -394,19 +429,29 @@ fun PhoneNumberScreenFunction(phoneNumber: MutableState<String>, navController: 
     ) {
         if (verificationId.value == null) {
             Text("Enter Phone Number", color = Color.White)
+
             OutlinedTextField(
                 value = phoneNumber.value,
-                onValueChange = { phoneNumber.value = it },
+                onValueChange = { input -> phoneNumber.value = input.filter { it.isDigit() }.take(10) },
                 label = { Text("Phone Number") },
-                textStyle = TextStyle(color = Color.White)
+                visualTransformation = PhoneNumberVisualTransformation(),
+                textStyle = TextStyle(color = Color.White),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
             )
+
             Spacer(modifier = Modifier.height(16.dp))
+
             Button(
                 onClick = {
+                    if (activity == null) {
+                        Log.e("PhoneAuth", "Activity context not available")
+                        return@Button
+                    }
+
                     val options = PhoneAuthOptions.newBuilder(FirebaseAuth.getInstance())
-                        .setPhoneNumber(phoneNumber.value)
+                        .setPhoneNumber(fullPhoneNumber)
                         .setTimeout(60L, TimeUnit.SECONDS)
-                        .setActivity(context as Activity)
+                        .setActivity(activity)
                         .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
                                 FirebaseAuth.getInstance().signInWithCredential(credential)
@@ -429,19 +474,25 @@ fun PhoneNumberScreenFunction(phoneNumber: MutableState<String>, navController: 
 
                     PhoneAuthProvider.verifyPhoneNumber(options)
                 },
-                enabled = phoneNumber.value.isNotBlank()
+                enabled = isPhoneValid,
+                modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
                 Text("Send Code")
             }
+
         } else {
             Text("Enter Verification Code", color = Color.White)
+
             OutlinedTextField(
                 value = smsCode.value,
                 onValueChange = { smsCode.value = it },
                 label = { Text("Verification Code") },
-                textStyle = TextStyle(color = Color.White)
+                textStyle = TextStyle(color = Color.White),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
             )
+
             Spacer(modifier = Modifier.height(16.dp))
+
             Button(
                 onClick = {
                     val credential = PhoneAuthProvider.getCredential(verificationId.value!!, smsCode.value)
@@ -454,13 +505,16 @@ fun PhoneNumberScreenFunction(phoneNumber: MutableState<String>, navController: 
                             }
                         }
                 },
-                enabled = smsCode.value.length == 6
+                enabled = smsCode.value.length == 6,
+                modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
                 Text("Verify & Continue")
             }
         }
     }
 }
+
+
 
 
 @Composable
@@ -470,8 +524,7 @@ fun UsernameScreenFunction(
     phoneNumber: MutableState<String>,
     username: MutableState<String>,
     navController: NavController
-)
-{
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -514,12 +567,56 @@ fun UsernameScreenFunction(
                 } else {
                     Log.e("AUTH", "User not logged in")
                 }
-            }
-
-            ,
+            },
             enabled = username.value.isNotBlank()
         ) {
             Text("Finish")
         }
     }
 }
+
+
+class PhoneNumberVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        // Only digits, max 10
+        val digits = text.text.filter { it.isDigit() }.take(10)
+
+        val formatted = buildString {
+            append("+1 ")
+            digits.forEachIndexed { i, c ->
+                if (i == 3 || i == 6) append('-')
+                append(c)
+            }
+        }
+
+        // Correct offset mapping:
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                val dashesBefore = (if (offset > 3) 1 else 0) + (if (offset > 6) 1 else 0)
+                return 3 + offset + dashesBefore
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                // before any digit
+                if (offset <= 3) return 0
+                // strip off the “+1 ” prefix
+                var orig = offset - 3
+                return when {
+                    orig <= 3     -> orig
+                    orig <= 7     -> orig - 1
+                    orig <= 10    -> orig - 2
+                    else          -> digits.length
+                }.coerceIn(0, digits.length)
+            }
+        }
+
+        return TransformedText(AnnotatedString(formatted), offsetMapping)
+    }
+}
+
+
+
+
+
+
+
