@@ -37,6 +37,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -44,7 +48,9 @@ import java.util.*
 data class Message(
     val senderId: String,
     val text: String,
-    val timestamp: Long
+    val timestamp: Long,
+    val isPost: Boolean = false,
+    val postData: PostData? = null
 )
 
 data class ChatPreview (
@@ -55,6 +61,13 @@ data class ChatPreview (
     val timestamp: Long = 0L,
     val chatId: String = "",
     val isUnread: Boolean = false
+)
+
+data class PostData(
+    val songName: String,
+    val artistName: String,
+    val albumName: String,
+    val songPicture: String
 )
 
 // for formatting timestamps for chat messages
@@ -175,10 +188,28 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
                     messages.clear()
                     messages.addAll(snapshot.documents.mapNotNull { doc ->
                         val data = doc.data ?: return@mapNotNull null
+
+                        val isPost = data["isPost"] as? Boolean ?: false
+                        var postData: PostData? = null
+
+                        if (isPost) {
+                            val postMap = data["postData"] as? Map<String, Any>
+                            if (postMap != null) {
+                                postData = PostData(
+                                    songName = postMap["songName"] as? String ?: "",
+                                    artistName = postMap["artistName"] as? String ?: "",
+                                    albumName = postMap["albumName"] as? String ?: "",
+                                    songPicture = postMap["songPicture"] as? String ?: ""
+                                )
+                            }
+                        }
+
                         Message(
                             senderId = data["senderId"] as? String ?: return@mapNotNull null,
                             text = data["text"] as? String ?: "",
-                            timestamp = data["timestamp"] as? Long ?: 0L
+                            timestamp = data["timestamp"] as? Long ?: 0L,
+                            isPost = isPost,
+                            postData = postData
                         )
                     })
                 }
@@ -231,27 +262,15 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
         ) {
             items(messages.reversed()) { msg ->
                 val isMe = msg.senderId == currentUserId
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                if (isMe) Color.LightGray else Color.DarkGray,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(8.dp)
-                    ) {
-                        Text(
-                            text = msg.text,
-                            color = if (isMe) Color.Black else Color.White,
-                            fontSize = 16.sp
-                        )
-                    }
+                if (msg.isPost && msg.postData != null) {
+                    PostMessageBubble(msg, isMe)
+                } else {
+                    RegularMessageBubble(msg, isMe)
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+
+                Spacer(modifier = Modifier.height(8.dp))
             }
+
         }
 
 
@@ -275,7 +294,8 @@ fun ChatDetailScreen(friend: ChatPreview, onBack: () -> Unit) {
                     val message = mapOf(
                         "senderId" to currentUserId,
                         "text" to messageText,
-                        "timestamp" to System.currentTimeMillis()
+                        "timestamp" to System.currentTimeMillis(),
+                        "isPost" to false
                     )
 
                     // Send message to shared chat location
@@ -385,5 +405,134 @@ class ChatViewModel : ViewModel() {
         }
     }
 
+}
 
+@Composable
+fun RegularMessageBubble(msg: Message, isMe: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
+    ) {
+        Box(
+            modifier = Modifier
+                .background(
+                    if (isMe) Color.LightGray else Color.DarkGray,
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .padding(8.dp)
+        ) {
+            Column {
+                Text(
+                    text = msg.text,
+                    color = if (isMe) Color.Black else Color.White,
+                    fontSize = 16.sp
+                )
+
+                Text(
+                    text = formatTimestamp(msg.timestamp),
+                    color = if (isMe) Color.DarkGray else Color.LightGray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.align(Alignment.End)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PostMessageBubble(msg: Message, isMe: Boolean) {
+    val postData = msg.postData ?: return
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
+    ) {
+        Box(
+            modifier = Modifier
+                .widthIn(max = 280.dp)
+                .background(
+                    if (isMe) Color(200, 200, 200) else Color(70, 70, 70),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .padding(8.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Message text
+                if (msg.text.isNotEmpty()) {
+                    Text(
+                        text = msg.text,
+                        color = if (isMe) Color.Black else Color.White,
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                // Song card with album art
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(40, 40, 40),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Album art
+                        AsyncImage(
+                            model = postData.songPicture,
+                            contentDescription = "Album Cover",
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Song details
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = postData.songName,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            Text(
+                                text = postData.artistName,
+                                color = Color.LightGray,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            Text(
+                                text = postData.albumName,
+                                color = Color.Gray,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                // Timestamp
+                Text(
+                    text = formatTimestamp(msg.timestamp),
+                    color = if (isMe) Color.DarkGray else Color.LightGray,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(top = 4.dp)
+                )
+            }
+        }
+    }
 }

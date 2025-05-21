@@ -298,6 +298,7 @@ class MainActivity : ComponentActivity() {
                             composable<HomeScreen> {
                                 HomeScreenFunction()
                             }
+
                             composable<FriendsScreen> {
                                 FriendsScreenFunction(viewModel(), onStartChat = { chat ->
                                     chatViewModel.createChatEntriesForBothUsers(chat)

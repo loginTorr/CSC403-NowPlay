@@ -25,11 +25,20 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,12 +55,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
-import java.util.Date
 
 
 @Composable
@@ -146,7 +155,9 @@ fun HomeScreenFunction() {
     }
     //NowPlay Logo
     Column(
-        modifier = Modifier.fillMaxSize().padding(20.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
@@ -186,7 +197,8 @@ fun DisplayHomePageFeed(UserPosts: List<Post>, posts: List<Post>) {
     ) {
         item {
             LazyRow(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
                     .height(230.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.Top
@@ -321,7 +333,10 @@ fun PostFriendItems(post: Post) {
                         modifier = Modifier
                             .size(100.dp)
                             .padding(8.dp)
-                            .background(Color.Gray.copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
+                            .background(
+                                Color.Gray.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(10.dp)
+                            )
                             .clickable { isFullSizeSongPicture = false }
                     ) {
                         Column(
@@ -416,20 +431,7 @@ fun PostFriendItems(post: Post) {
             verticalArrangement = Arrangement.spacedBy(4.dp) // Reduce spacing here
 
         ) {
-            IconButton (
-                onClick = {/* TODO: Implement button functionality */ },
-            )
-            {
-                Icon(
-                    Icons.AutoMirrored.Filled.Send,
-                    contentDescription =  "",
-                    tint = Color.White,
-                    modifier = Modifier
-                        .size(40.dp)
-                )
-            }
-
-
+            SendButton(post)
 
             IconButton (
                 onClick = {/* TODO: Implement button functionality */ },
@@ -464,4 +466,371 @@ fun PostFriendItems(post: Post) {
 }
 
 
+@Composable
+fun SendButton(post: Post? = null) {
+    var showDialog by remember { mutableStateOf(false) }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+    // The SendButton itself
+    IconButton(
+        onClick = { showDialog = true }
+    ) {
+        Icon(
+            Icons.AutoMirrored.Filled.Send,
+            contentDescription = "Send Message",
+            tint = Color.White,
+            modifier = Modifier.size(40.dp)
+        )
+    }
+
+    // Show dialog when button is clicked
+    if (showDialog) {
+        SendMessageDialog(
+            post = post,
+            onDismiss = { showDialog = false },
+            onSend = { message, selectedFriendId, selectedFriendName ->
+                // Send message and post to the chat collection
+                if (post != null && selectedFriendId.isNotEmpty()) {
+                    sendPostToChat(
+                        currentUserId = currentUserId,
+                        friendId = selectedFriendId,
+                        friendName = selectedFriendName,
+                        message = message,
+                        post = post
+                    )
+                }
+                showDialog = false
+            }
+        )
+    }
+}
+
+// Function to send a post to a chat
+private fun sendPostToChat(
+    currentUserId: String,
+    friendId: String,
+    friendName: String,
+    message: String,
+    post: Post
+) {
+    val db = Firebase.firestore
+
+    // Get the chat ID (consistent for both users)
+    val chatId = listOf(currentUserId, friendId).sorted().joinToString("_")
+
+    // Create post data object
+    val postData = mapOf(
+        "songName" to post.songName,
+        "artistName" to post.artistName,
+        "albumName" to post.albumName,
+        "songPicture" to post.songPicture
+    )
+
+    // Create the message with post data
+    val messageData = mapOf(
+        "senderId" to currentUserId,
+        "text" to message,
+        "timestamp" to System.currentTimeMillis(),
+        "isPost" to true,
+        "postData" to postData
+    )
+
+    // Send message to shared chat location
+    db.collection("Messages").document(chatId)
+        .collection("Messages")
+        .add(messageData)
+        .addOnSuccessListener {
+            Log.d("CHAT", "Post message sent successfully")
+
+            // Update or create chat previews for both users
+            updateChatPreview(currentUserId, friendId, friendName, message)
+
+            // Get current user data to update recipient's chat preview
+            db.collection("Users").document(currentUserId)
+                .get()
+                .addOnSuccessListener { currentUserDoc ->
+                    val myName = currentUserDoc.getString("username") ?: "Unknown"
+                    val myImage = currentUserDoc.getString("profileImageUrl") ?: ""
+
+                    updateChatPreview(friendId, currentUserId, myName, message, true, myImage)
+                }
+        }
+        .addOnFailureListener { e ->
+            Log.e("CHAT", "Error sending post message", e)
+        }
+}
+
+// Helper function to update or create chat preview
+private fun updateChatPreview(
+    userId: String,
+    friendId: String,
+    friendName: String,
+    lastMessage: String,
+    isUnread: Boolean = false,
+    friendImage: String = ""
+) {
+    val db = Firebase.firestore
+
+    // Check if chat exists
+    db.collection("Users").document(userId)
+        .collection("Chats").document(friendId)
+        .get()
+        .addOnSuccessListener { document ->
+            val previewUpdate = mapOf(
+                "lastMessage" to lastMessage,
+                "timestamp" to System.currentTimeMillis(),
+                "unread" to isUnread
+            )
+
+            if (document.exists()) {
+                // Update existing chat preview
+                db.collection("Users").document(userId)
+                    .collection("Chats").document(friendId)
+                    .update(previewUpdate)
+            } else {
+                // Create new chat preview
+                val newChatPreview = hashMapOf(
+                    "chatId" to listOf(userId, friendId).sorted().joinToString("_"),
+                    "friendId" to friendId,
+                    "friendName" to friendName,
+                    "profileImageUrl" to friendImage,
+                    "lastMessage" to lastMessage,
+                    "timestamp" to System.currentTimeMillis(),
+                    "unread" to isUnread
+                )
+
+                db.collection("Users").document(userId)
+                    .collection("Chats").document(friendId)
+                    .set(newChatPreview)
+            }
+        }
+}
+
+@Composable
+fun SendMessageDialog(
+    post: Post?,
+    onDismiss: () -> Unit,
+    onSend: (String, String, String) -> Unit // message, friendId, friendName
+) {
+    var messageText by remember { mutableStateOf("") }
+    var friends by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) } // id, name
+    var selectedFriendId by remember { mutableStateOf("") }
+    var selectedFriendName by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Fetch friends list on dialog open
+    LaunchedEffect(Unit) {
+        isLoading = true
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return@LaunchedEffect
+        val db = Firebase.firestore
+
+        db.collection("Users").document(currentUserId)
+            .collection("Friends")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val friendsList = mutableListOf<Pair<String, String>>()
+
+                if (snapshot.documents.isEmpty()) {
+                    isLoading = false
+                    return@addOnSuccessListener
+                }
+
+                var pendingRequests = snapshot.documents.size
+
+                for (doc in snapshot.documents) {
+                    val friendId = doc.id
+                    db.collection("Users").document(friendId)
+                        .get()
+                        .addOnSuccessListener { friendDoc ->
+                            val friendName = friendDoc.getString("username") ?: "Unknown"
+                            friendsList.add(friendId to friendName)
+
+                            pendingRequests--
+                            if (pendingRequests == 0) {
+                                friends = friendsList
+                                isLoading = false
+                            }
+                        }
+                        .addOnFailureListener {
+                            pendingRequests--
+                            if (pendingRequests == 0) {
+                                friends = friendsList
+                                isLoading = false
+                            }
+                        }
+                }
+            }
+            .addOnFailureListener {
+                isLoading = false
+            }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color(40, 40, 40)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Share this song",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // Display the post image if available
+                post?.songPicture?.let { imageUrl ->
+                    Box(
+                        modifier = Modifier
+                            .size(160.dp)
+                            .padding(bottom = 8.dp)
+                    ) {
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = "Song Image",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+
+                    // Song info
+                    Text(
+                        text = post.songName,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Text(
+                        text = post.artistName,
+                        color = Color.LightGray,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Text(
+                        text = post.albumName,
+                        color = Color.LightGray.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
+
+                // Friends dropdown
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                } else if (friends.isEmpty()) {
+                    Text(
+                        text = "Add friends to share music with them",
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                } else {
+                    var expanded by remember { mutableStateOf(false) }
+                    val displayText = if (selectedFriendId.isEmpty()) "Select a friend" else selectedFriendName
+
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedButton(
+                            onClick = { expanded = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(displayText)
+                        }
+
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.fillMaxWidth(0.9f)
+                        ) {
+                            friends.forEach { (id, name) ->
+                                DropdownMenuItem(
+                                    text = { Text(name) },
+                                    onClick = {
+                                        selectedFriendId = id
+                                        selectedFriendName = name
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Message input field
+                TextField(
+                    value = messageText,
+                    onValueChange = { messageText = it },
+                    label = { Text("Add a message", color = Color.LightGray) },
+                    placeholder = { Text("Check out this song!", color = Color.Gray) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedContainerColor = Color(60, 60, 60),
+                        unfocusedContainerColor = Color(50, 50, 50),
+                        cursorColor = Color.White,
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.Gray
+                    )
+                )
+
+                // Action buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.DarkGray
+                        )
+                    ) {
+                        Text("Cancel")
+                    }
+
+                    Button(
+                        onClick = {
+                            val message = messageText.ifEmpty { "Check out this song!" }
+                            onSend(message, selectedFriendId, selectedFriendName)
+                        },
+                        enabled = selectedFriendId.isNotEmpty(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1DB954)
+                        )
+                    ) {
+                        Text("Share")
+                    }
+                }
+            }
+        }
+    }
+}
 
